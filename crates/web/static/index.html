@@ -28,12 +28,14 @@
   td.active button:hover { background: #37835c; }
   #status { margin-top: 1rem; font-size: 0.8rem; color: #777; }
   #empty { color: #888; }
+  #disclaimer { margin-top: 2.5rem; font-size: 0.75rem; color: #565b64; max-width: 32rem; }
 </style>
 </head>
 <body>
 <h1>SRT Router — Crosspoint</h1>
 <div id="grid"><p id="empty">Loading…</p></div>
 <div id="status"></div>
+<p id="disclaimer">AI-assisted project (built with Claude), reviewed by a human author. See the repo README for current verification status.</p>
 <script>
 async function fetchState() {
   const res = await fetch('/api/state');

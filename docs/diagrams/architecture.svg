@@ -1,0 +1,75 @@
+<svg viewBox="0 0 900 380" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5b6472"/>
+    </marker>
+    <marker id="arrow-active" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4a9c72"/>
+    </marker>
+  </defs>
+
+  <rect width="900" height="380" fill="#14161a"/>
+
+  <text x="24" y="34" fill="#9fb4ff" font-size="17" font-weight="600">srt-router — relay crosspoint</text>
+
+  <!-- Input column -->
+  <g font-size="13">
+    <rect x="24" y="70" width="190" height="46" rx="6" fill="#1c1f26" stroke="#2a2d33"/>
+    <text x="119" y="90" fill="#e6e6e6" text-anchor="middle" font-weight="600">cam1</text>
+    <text x="119" y="106" fill="#8a8f98" text-anchor="middle" font-size="11">SRT listener :5001</text>
+
+    <rect x="24" y="132" width="190" height="46" rx="6" fill="#1c1f26" stroke="#2a2d33"/>
+    <text x="119" y="152" fill="#e6e6e6" text-anchor="middle" font-weight="600">cam2</text>
+    <text x="119" y="168" fill="#8a8f98" text-anchor="middle" font-size="11">SRT listener :5002</text>
+
+    <rect x="24" y="194" width="190" height="46" rx="6" fill="#1c1f26" stroke="#2a2d33"/>
+    <text x="119" y="214" fill="#e6e6e6" text-anchor="middle" font-weight="600">remote-feed</text>
+    <text x="119" y="230" fill="#8a8f98" text-anchor="middle" font-size="11">SRT caller -&gt; 203.0.113.10</text>
+
+    <rect x="24" y="270" width="190" height="46" rx="6" fill="#161a20" stroke="#2a2d33" stroke-dasharray="4 3"/>
+    <text x="119" y="290" fill="#8a8f98" text-anchor="middle" font-weight="600">stills / media player</text>
+    <text x="119" y="306" fill="#666d78" text-anchor="middle" font-size="11">Phase 2 — not built yet</text>
+  </g>
+
+  <!-- Arrows input -> crosspoint -->
+  <path d="M214,93 L330,93 L330,150" fill="none" stroke="#4a9c72" stroke-width="2" marker-end="url(#arrow-active)"/>
+  <path d="M214,155 L330,155" fill="none" stroke="#5b6472" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M214,217 L330,217 L330,180" fill="none" stroke="#5b6472" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M214,293 L300,293 L300,210 L330,210" fill="none" stroke="#3a3f47" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+
+  <!-- Crosspoint -->
+  <rect x="330" y="110" width="240" height="160" rx="8" fill="#1a2320" stroke="#3a5f4a" stroke-width="1.5"/>
+  <text x="450" y="136" fill="#d4ffe6" text-anchor="middle" font-size="14" font-weight="700">crosspoint-core</text>
+  <text x="450" y="156" fill="#8fbfa2" text-anchor="middle" font-size="11" fill-opacity="0.8">source id -&gt; broadcast::Sender&lt;Bytes&gt;</text>
+  <line x1="350" y1="168" x2="550" y2="168" stroke="#2f4a3c"/>
+  <text x="450" y="188" fill="#d4ffe6" text-anchor="middle" font-size="12">routing table</text>
+  <text x="450" y="205" fill="#8fbfa2" text-anchor="middle" font-size="11" fill-opacity="0.8">output id -&gt; source id</text>
+  <text x="450" y="225" fill="#8fbfa2" text-anchor="middle" font-size="11" fill-opacity="0.8">(watch::Receiver per output)</text>
+  <rect x="350" y="238" width="200" height="24" rx="4" fill="#2f6f4f"/>
+  <text x="450" y="254" fill="#eafff2" text-anchor="middle" font-size="11" font-weight="600">program -&gt; cam1  (live)</text>
+
+  <!-- Arrows crosspoint -> outputs -->
+  <path d="M570,155 L686,155" fill="none" stroke="#4a9c72" stroke-width="2" marker-end="url(#arrow-active)"/>
+  <path d="M570,210 L640,210 L640,240 L686,240" fill="none" stroke="#5b6472" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Output column -->
+  <g font-size="13">
+    <rect x="686" y="132" width="190" height="46" rx="6" fill="#1c1f26" stroke="#3a5f4a" stroke-width="1.5"/>
+    <text x="781" y="152" fill="#e6e6e6" text-anchor="middle" font-weight="600">program</text>
+    <text x="781" y="168" fill="#8fbfa2" text-anchor="middle" font-size="11">SRT listener :6001 -&gt; cam1</text>
+
+    <rect x="686" y="217" width="190" height="46" rx="6" fill="#1c1f26" stroke="#2a2d33"/>
+    <text x="781" y="237" fill="#e6e6e6" text-anchor="middle" font-weight="600">preview</text>
+    <text x="781" y="253" fill="#8a8f98" text-anchor="middle" font-size="11">SRT listener :6002 -&gt; cam2</text>
+  </g>
+
+  <!-- Legend -->
+  <g font-size="11" fill="#8a8f98">
+    <line x1="24" y1="345" x2="50" y2="345" stroke="#4a9c72" stroke-width="2"/>
+    <text x="58" y="349">currently routed</text>
+    <line x1="190" y1="345" x2="216" y2="345" stroke="#5b6472" stroke-width="2"/>
+    <text x="224" y="349">registered, not selected</text>
+    <line x1="400" y1="345" x2="426" y2="345" stroke="#3a3f47" stroke-width="2" stroke-dasharray="4 3"/>
+    <text x="434" y="349">Phase 2, not built yet</text>
+  </g>
+</svg>

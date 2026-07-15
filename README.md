@@ -15,6 +15,15 @@ output picks exactly one source, switchable live) connecting them — the same
 mental model as a broadcast video router, applied to SRT streams instead of
 SDI/HDMI.
 
+![srt-router architecture: SRT inputs feeding crosspoint-core's per-source broadcast channels, a routing table mapping each output to one source, out to SRT outputs](docs/diagrams/architecture.svg)
+
+<img src="docs/screenshots/crosspoint-grid.png" alt="The crosspoint web UI: a grid of outputs (program, preview) by sources (remote-feed, cam1, cam2), with the currently-routed cell highlighted green in each row" width="480">
+
+*The web UI above is a real screenshot of the router running locally against
+[config/example.toml](config/example.toml), not a mockup — captured while
+verifying the routing/persistence/websocket behavior described in
+[Status](#status) below.*
+
 ## What it does
 
 By default, routing is a **pure relay**: the crosspoint moves opaque payload

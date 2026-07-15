@@ -1,5 +1,7 @@
 # Architecture
 
+![srt-router architecture: SRT inputs feeding crosspoint-core's per-source broadcast channels, a routing table mapping each output to one source, out to SRT outputs](diagrams/architecture.svg)
+
 ## The core model
 
 Three concepts, deliberately kept separate:
