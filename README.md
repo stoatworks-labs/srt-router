@@ -127,6 +127,13 @@ See [docs/architecture.md](docs/architecture.md) for the source/output/
 crosspoint model and how the relay-vs-generated source distinction is meant
 to extend later without changing the core engine.
 
-## Roadmap
+## Roadmap / TODO
 
-See [docs/roadmap.md](docs/roadmap.md).
+Full phased plan in [docs/roadmap.md](docs/roadmap.md). Main open items:
+
+- [ ] **Real-world testing** — against a third-party SRT/NDI encoder/decoder and over a real (non-loopback) network path; the main open gap.
+- [ ] **NDI in the runtime API/UI** — wire the (already-tested) NDI transport into the add/remove API and web UI menus, not just the TOML config behind the `ndi` feature.
+- [ ] **OMT transport** — implement `crates/omt-io` (currently a placeholder).
+- [ ] **Special-purpose sources** — stills, local media player, scaler tap (shown as disabled options in the add-source menu today).
+- [ ] **Auth/TLS** on the web UI/API.
+- [ ] **External control API / Bitfocus Companion** integration.
