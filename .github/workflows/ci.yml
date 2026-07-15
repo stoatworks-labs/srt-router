@@ -23,4 +23,8 @@ jobs:
       - name: clippy
         run: cargo clippy --all-targets -- -D warnings
       - name: test
-        run: cargo test --all
+        # No --all/--workspace: that overrides [workspace] default-members
+        # and would try to build ndi-io/omt-io too, which need real SDKs
+        # (NDI SDK, libomt) that aren't installed on this runner. Plain
+        # `cargo test` respects default-members and stays SRT-only.
+        run: cargo test
