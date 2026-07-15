@@ -1211,6 +1211,7 @@ dependencies = [
  "crosspoint-core",
  "crosspoint-web",
  "serde",
+ "serde_json",
  "srt-io",
  "tokio",
  "toml",

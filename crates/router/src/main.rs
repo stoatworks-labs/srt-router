@@ -1,5 +1,7 @@
 mod config;
+mod state;
 
+use std::collections::HashMap;
 use std::net::SocketAddr;
 
 use anyhow::{Context, Result};
@@ -34,14 +36,38 @@ async fn main() -> Result<()> {
         tracing::info!(id = %input.id, "starting SRT input");
         srt_io::spawn_input(input.id, input.endpoint, crosspoint.clone());
     }
+
+    let persisted_routes: HashMap<String, String> = match &config.state {
+        Some(state_cfg) => {
+            let routes = state::load_routes(&state_cfg.path);
+            if !routes.is_empty() {
+                tracing::info!(
+                    path = %state_cfg.path.display(),
+                    count = routes.len(),
+                    "loaded persisted routing state"
+                );
+            }
+            routes
+        }
+        None => HashMap::new(),
+    };
+
     for output in config.outputs {
-        tracing::info!(id = %output.id, "starting SRT output");
+        let initial_source = persisted_routes
+            .get(&output.id)
+            .cloned()
+            .unwrap_or(output.default_source);
+        tracing::info!(id = %output.id, source = %initial_source, "starting SRT output");
         srt_io::spawn_output(
             output.id,
             output.endpoint,
-            output.default_source,
+            initial_source,
             crosspoint.clone(),
         );
+    }
+
+    if let Some(state_cfg) = config.state {
+        state::spawn_persistence(state_cfg.path, crosspoint.clone());
     }
 
     let bind: SocketAddr = config

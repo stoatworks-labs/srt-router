@@ -11,6 +11,13 @@
 # Local web UI + REST API for the crosspoint grid.
 bind = "0.0.0.0:8080"
 
+[state]
+# Optional. If present, routing changes made via the web UI/API are
+# persisted here and reloaded on startup (overriding each output's
+# default_source below). Remove this section to keep routing in-memory
+# only, reset to default_source on every restart.
+path = "state/routes.json"
+
 [[inputs]]
 id = "cam1"
 mode = "listener"

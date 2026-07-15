@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use srt_io::Endpoint;
 
@@ -8,6 +10,16 @@ pub struct Config {
     pub inputs: Vec<InputConfig>,
     #[serde(default)]
     pub outputs: Vec<OutputConfig>,
+    /// If present, routing changes are persisted to disk and reloaded on
+    /// startup (overriding each output's `default_source`). Omit to keep
+    /// routing in-memory only, reset to `default_source` on every restart.
+    #[serde(default)]
+    pub state: Option<StateConfig>,
+}
+
+#[derive(Deserialize)]
+pub struct StateConfig {
+    pub path: PathBuf,
 }
 
 #[derive(Deserialize)]
