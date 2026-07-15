@@ -1437,6 +1437,7 @@ dependencies = [
  "srt-tokio",
  "tokio",
  "tokio-stream",
+ "tokio-util",
  "tracing",
 ]
 
@@ -1489,13 +1490,16 @@ name = "srtrouter"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "axum",
  "clap",
  "crosspoint-core",
  "crosspoint-web",
+ "parking_lot",
  "serde",
  "serde_json",
  "srt-io",
  "tokio",
+ "tokio-util",
  "toml",
  "tracing",
  "tracing-subscriber",

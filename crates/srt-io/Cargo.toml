@@ -13,3 +13,4 @@ futures = "0.3"
 bytes = "1"
 serde = { version = "1", features = ["derive"] }
 tracing = "0.1"
+tokio-util = "0.7"

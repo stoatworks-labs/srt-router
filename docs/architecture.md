@@ -68,6 +68,29 @@ future scaler/media-player case) *can* be made seamless at its own output,
 at the cost of actually running a media pipeline for that one path — see
 [roadmap.md](roadmap.md).
 
+## This isn't hypothetical — `crates/ndi-io` proves it
+
+NDI is exactly the "future non-relay source" case above, except it arrived
+before stills/media-player/scaler did. NDI has no single opaque payload the
+way SRT/MPEG-TS does — a receiver hands you distinct video, audio, and
+metadata frames, each with its own fields (resolution, pixel format, sample
+rate, timecode...). `crates/ndi-io/src/envelope.rs` is the "turn a native
+frame into a `Bytes` blob and back" logic the note above described in the
+abstract: a small self-describing wire format (a kind byte, then that
+frame's fields, then its raw data) that a receiver encodes into and a
+sender decodes back out of. `crates/core` never links against `grafton-ndi`
+or knows NDI exists — it's still just moving `Bytes`.
+
+![One crosspoint, two ways of filling a Bytes chunk: SRT relays its socket payload straight through, NDI encodes a VideoFrame/AudioFrame/MetadataFrame into a self-describing envelope and decodes it back on the other side, both ending up in the same crosspoint-core Bytes broadcast channel](diagrams/multi-transport-envelope.svg)
+
+The real consequence of this design, not just a footnote: an SRT source
+can't be routed to an NDI output (or vice versa) without actual
+transcoding — they're different envelopes, not just different wire formats
+carrying the same thing. `crates/ndi-io` isn't wired into the `srtrouter`
+binary/config yet (see [roadmap.md](roadmap.md)), but it's a real,
+independently tested crate (`crates/ndi-io/tests/relay.rs` drives an actual
+NDI sender/receiver against it) proving the pattern holds.
+
 ## Crate layout
 
 - `crates/core` (`crosspoint-core`) — the engine described above. No I/O,
@@ -86,7 +109,28 @@ at the cost of actually running a media pipeline for that one path — see
 - `crates/router` (bin `srtrouter`) — loads a TOML config
   ([config/example.toml](../config/example.toml)), registers every
   configured input/output with a shared `Crosspoint`, and starts the web
-  server.
+  server. `src/registry.rs` tracks the transport kind + a
+  `tokio_util::sync::CancellationToken` for every running source/output —
+  both config-loaded and API-added ones go through the same
+  `insert_source`/`insert_output` calls, so either is equally
+  listable/removable. `src/management.rs` is the runtime add/remove REST
+  API (`POST`/`DELETE /api/manage/sources`, `/api/manage/outputs`) that the
+  web UI's Add source/destination forms and remove buttons call — merged
+  into the same `axum::Router` as `crosspoint-web`'s routes via `.merge()`.
+- `crates/ndi-io` (`ndi-io`) — the NDI transport: `spawn_input`/
+  `spawn_output` with the same shape as `srt-io`'s, using
+  [grafton-ndi](https://github.com/GrantSparks/grafton-ndi) against the
+  real NDI SDK, with `src/envelope.rs` doing the frame<->`Bytes` conversion
+  described above. Requires the actual NDI SDK installed to build (real
+  bindgen against its headers) — it's a genuine workspace member
+  (buildable/testable via `-p ndi-io`) but excluded from
+  `default-members`, so it doesn't affect the default `cargo build`/`cargo
+  test`/CI, which stay SRT-only. Not yet referenced by `crates/router`.
+- `crates/omt-io` (`omt-io`) — placeholder for the equivalent OMT
+  transport (open, MIT-licensed protocol). Not implemented — the only
+  existing Rust wrapper is Windows-only and incomplete; real support means
+  hand-written FFI against libomt's own header/binary. Also excluded from
+  `default-members`.
 
 ## Config format
 
@@ -115,3 +159,32 @@ route for a configured output overrides that output's `default_source`.
 Omit `[state]` to keep routing in-memory only, as before — every restart
 then resets to each output's `default_source`. See
 `crates/router/src/state.rs`.
+
+## Runtime add/remove API
+
+Config-loaded sources/outputs are the *starting* set, not the only
+possible one. `crates/router/src/management.rs` exposes:
+
+```
+GET    /api/manage/sources              -> [{ "id": "cam1", "kind": "srt" }, ...]
+POST   /api/manage/sources               { "id": "cam3", "mode": "listener", "bind": "0.0.0.0:5003" }
+DELETE /api/manage/sources/:id
+GET    /api/manage/outputs              -> [{ "id": "program", "kind": "srt" }, ...]
+POST   /api/manage/outputs               { "id": "aux", "mode": "caller", "connect": "203.0.113.10:6000", "default_source": "cam1" }
+DELETE /api/manage/outputs/:id
+```
+
+`POST` is rejected with `409 Conflict` if the id already exists (checked
+against the live `Crosspoint`, not just the registry, so it can't collide
+with a config-loaded id either). `DELETE` on an unknown id is `404`. A
+successful `DELETE` calls the entry's `CancellationToken` (which stops its
+`spawn_input`/`spawn_output` task — for a `listener`, this actually frees
+the bound socket, confirmed with `lsof` during testing, not assumed) and
+then `Crosspoint::deregister_source`/`deregister_output`.
+
+SRT-only today: the request bodies above are SRT endpoint shapes
+(`SrtEndpointRequest` in `management.rs`), and `POST` always spawns via
+`srt_io::spawn_input`/`spawn_output`. The web UI's add-source/add-destination
+forms show NDI/Scaler/Media player as disabled options in the transport
+dropdown for this reason — `ndi-io` is real and tested (see above) but
+`management.rs` doesn't call into it yet.

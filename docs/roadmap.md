@@ -19,9 +19,43 @@
       third-party hardware.
 - [x] CI (GitHub Actions): `fmt --check`, `clippy -D warnings`, `cargo
       test` on every push/PR.
+- [x] Runtime add/remove: `POST`/`DELETE /api/manage/sources` and
+      `/outputs` (`crates/router/src/management.rs`), backed by a
+      `CancellationToken` per task (added to `srt-io`) so removal actually
+      stops the task and frees the socket — confirmed with `lsof`, not
+      assumed. Config-loaded and API-added sources/outputs go through the
+      same code path (`crates/router/src/registry.rs`), so one isn't a
+      second-class citizen relative to the other. Web UI: Add
+      source/destination forms + a remove control per row/column, verified
+      live in a real browser (add cam3, confirm its port binds, remove it,
+      confirm the port frees).
 - [ ] Verified against a real **third-party** SRT encoder/decoder or over a
       real (non-loopback) network path — this is the one remaining gap
       before treating Phase 1 as production-ready.
+
+## Transports beyond SRT
+
+- [x] **NDI** — `crates/ndi-io`, using
+      [grafton-ndi](https://github.com/GrantSparks/grafton-ndi)
+      (Apache-2.0) against the real NDI SDK. Same `spawn_input`/
+      `spawn_output` shape as `srt-io`, with a small envelope
+      (`src/envelope.rs`) carrying NDI's video/audio/metadata frames
+      through `crosspoint-core`'s existing `Bytes` channel — see
+      [architecture.md](architecture.md#this-isnt-hypothetical--cratesndi-io-proves-it).
+      Verified for real: `crates/ndi-io/tests/relay.rs` drives an actual
+      NDI sender and receiver against it, consistently passing. **Not yet
+      wired into `srtrouter`**: no config schema support, and
+      `management.rs`'s add-source/add-destination API is SRT-only — the
+      web UI shows NDI as a disabled option in the transport dropdown
+      until this lands. Also excluded from CI (needs the real SDK
+      installed, which CI can't do).
+- [ ] **OMT** — `crates/omt-io` exists only as a placeholder. OMT itself is
+      a genuinely open, MIT-licensed protocol (unlike NDI), but the only
+      existing Rust wrapper is Windows-only and pre-release (no
+      send/receive implementation, only source discovery). Real support
+      means hand-writing FFI bindings against libomt's own C header and
+      the prebuilt macOS/Windows binary (no Linux build exists) —
+      deferred, not started.
 
 ## Phase 2 — special-purpose sources
 
@@ -29,7 +63,9 @@ The core engine's `Source` abstraction (see
 [architecture.md](architecture.md)) is meant to support these without
 changing `crates/core` — each is a new producer that calls
 `Crosspoint::register_source` and publishes chunks it generated instead of
-relayed:
+relayed. The web UI's Add source/destination forms already list these as
+disabled options ("Phase 2 — not built yet") so the menu shape exists
+ahead of the backends:
 
 - **Stills source** — loop a static image, encoded as an SRT-compatible
   stream (likely via an `ffmpeg`/`gstreamer` child process or library

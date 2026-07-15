@@ -4,6 +4,11 @@
 //! reconnects on its own (listener: re-listen; caller: re-dial) whenever the
 //! connection drops — a router should keep trying, not need a restart
 //! because one encoder blipped.
+//!
+//! `spawn_input`/`spawn_output` return a [`CancellationToken`]: dropping or
+//! cancelling it stops the task (and any in-progress connect/wait) promptly,
+//! which is what lets an input/output be removed at runtime rather than
+//! only ever torn down by the whole process exiting.
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -13,9 +18,10 @@ use crosspoint_core::Crosspoint;
 use futures::SinkExt;
 use serde::Deserialize;
 use srt_tokio::SrtSocket;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, watch};
 use tokio::time::sleep;
 use tokio_stream::StreamExt;
+use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
 
 /// How an SRT socket for one endpoint is established.
@@ -42,89 +48,138 @@ async fn open(endpoint: &Endpoint) -> std::io::Result<SrtSocket> {
 
 /// Spawn the task for one SRT input: connect (or wait for a connection),
 /// publish every payload chunk onto the crosspoint's broadcast channel for
-/// `id`, and reconnect on drop. Runs until the process exits.
-pub fn spawn_input(id: String, endpoint: Endpoint, crosspoint: Arc<Crosspoint>) {
+/// `id`, and reconnect on drop. Runs until cancelled (or the process exits).
+pub fn spawn_input(
+    id: String,
+    endpoint: Endpoint,
+    crosspoint: Arc<Crosspoint>,
+) -> CancellationToken {
+    let cancel = CancellationToken::new();
+    let task_cancel = cancel.clone();
     let tx = crosspoint.register_source(id.clone());
     tokio::spawn(async move {
         loop {
-            match open(&endpoint).await {
-                Ok(mut socket) => {
-                    info!(source = %id, "SRT input connected");
-                    relay_in(&mut socket, &tx, &id).await;
-                    warn!(source = %id, "SRT input disconnected, reconnecting");
+            tokio::select! {
+                _ = task_cancel.cancelled() => {
+                    info!(source = %id, "SRT input stopped");
+                    return;
                 }
-                Err(err) => {
-                    warn!(source = %id, %err, "SRT input connect failed, retrying");
-                }
+                result = open(&endpoint) => match result {
+                    Ok(mut socket) => {
+                        info!(source = %id, "SRT input connected");
+                        relay_in(&mut socket, &tx, &id, &task_cancel).await;
+                        if task_cancel.is_cancelled() {
+                            return;
+                        }
+                        warn!(source = %id, "SRT input disconnected, reconnecting");
+                    }
+                    Err(err) => {
+                        warn!(source = %id, %err, "SRT input connect failed, retrying");
+                    }
+                },
             }
-            sleep(RECONNECT_DELAY).await;
+            tokio::select! {
+                _ = task_cancel.cancelled() => return,
+                _ = sleep(RECONNECT_DELAY) => {}
+            }
         }
     });
+    cancel
 }
 
 /// Spawn the task for one SRT output: connect (or wait for a connection),
 /// forward whatever payload the crosspoint currently routes to `id`, and
-/// reconnect on drop or re-subscribe on a routing change. Runs until the
-/// process exits.
+/// reconnect on drop or re-subscribe on a routing change. Runs until
+/// cancelled (or the process exits).
 pub fn spawn_output(
     id: String,
     endpoint: Endpoint,
     default_source: String,
     crosspoint: Arc<Crosspoint>,
-) {
+) -> CancellationToken {
+    let cancel = CancellationToken::new();
+    let task_cancel = cancel.clone();
     let route_rx = crosspoint.register_output(id.clone(), default_source);
     tokio::spawn(async move {
         loop {
-            match open(&endpoint).await {
-                Ok(mut socket) => {
-                    info!(output = %id, "SRT output connected");
-                    relay_out(&mut socket, route_rx.clone(), &crosspoint, &id).await;
-                    warn!(output = %id, "SRT output disconnected, reconnecting");
+            tokio::select! {
+                _ = task_cancel.cancelled() => {
+                    info!(output = %id, "SRT output stopped");
+                    return;
                 }
-                Err(err) => {
-                    warn!(output = %id, %err, "SRT output connect failed, retrying");
-                }
+                result = open(&endpoint) => match result {
+                    Ok(mut socket) => {
+                        info!(output = %id, "SRT output connected");
+                        relay_out(&mut socket, route_rx.clone(), &crosspoint, &id, &task_cancel).await;
+                        if task_cancel.is_cancelled() {
+                            return;
+                        }
+                        warn!(output = %id, "SRT output disconnected, reconnecting");
+                    }
+                    Err(err) => {
+                        warn!(output = %id, %err, "SRT output connect failed, retrying");
+                    }
+                },
             }
-            sleep(RECONNECT_DELAY).await;
+            tokio::select! {
+                _ = task_cancel.cancelled() => return,
+                _ = sleep(RECONNECT_DELAY) => {}
+            }
         }
     });
+    cancel
 }
 
-async fn relay_in(socket: &mut SrtSocket, tx: &broadcast::Sender<Bytes>, id: &str) {
+async fn relay_in(
+    socket: &mut SrtSocket,
+    tx: &broadcast::Sender<Bytes>,
+    id: &str,
+    cancel: &CancellationToken,
+) {
     loop {
-        match socket.try_next().await {
-            Ok(Some((_instant, bytes))) => {
-                // No receivers is normal (no output currently routed here) —
-                // send() erroring in that case isn't a problem.
-                let _ = tx.send(bytes);
-            }
-            Ok(None) => return,
-            Err(err) => {
-                warn!(source = %id, %err, "SRT input read error");
-                return;
-            }
+        tokio::select! {
+            _ = cancel.cancelled() => return,
+            result = socket.try_next() => match result {
+                Ok(Some((_instant, bytes))) => {
+                    // No receivers is normal (no output currently routed
+                    // here) — send() erroring in that case isn't a problem.
+                    let _ = tx.send(bytes);
+                }
+                Ok(None) => return,
+                Err(err) => {
+                    warn!(source = %id, %err, "SRT input read error");
+                    return;
+                }
+            },
         }
     }
 }
 
 async fn relay_out(
     socket: &mut SrtSocket,
-    mut route_rx: tokio::sync::watch::Receiver<String>,
+    mut route_rx: watch::Receiver<String>,
     crosspoint: &Arc<Crosspoint>,
     id: &str,
+    cancel: &CancellationToken,
 ) {
     loop {
         let current = route_rx.borrow().clone();
         let Some(mut rx) = crosspoint.subscribe(&current) else {
             // Routed at a source id that isn't registered (shouldn't happen
             // with config-validated ids); wait for the route to change.
-            if route_rx.changed().await.is_err() {
-                return;
+            tokio::select! {
+                _ = cancel.cancelled() => return,
+                changed = route_rx.changed() => {
+                    if changed.is_err() {
+                        return;
+                    }
+                }
             }
             continue;
         };
         loop {
             tokio::select! {
+                _ = cancel.cancelled() => return,
                 changed = route_rx.changed() => {
                     if changed.is_err() {
                         return;

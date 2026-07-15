@@ -99,7 +99,10 @@ async fn push_state(mut socket: WebSocket, crosspoint: Arc<Crosspoint>) {
     }
 }
 
-fn app(crosspoint: Arc<Crosspoint>) -> Router {
+/// The crosspoint UI/API as a standalone `Router`, for callers (like
+/// `srtrouter`) that want to `.merge()` in their own additional routes
+/// (e.g. transport-specific source/output management) before serving.
+pub fn app(crosspoint: Arc<Crosspoint>) -> Router {
     Router::new()
         .route("/", get(index))
         .route("/api/state", get(get_state))
@@ -108,7 +111,8 @@ fn app(crosspoint: Arc<Crosspoint>) -> Router {
         .with_state(crosspoint)
 }
 
-/// Bind and serve the crosspoint web UI. Runs until the process exits.
+/// Bind and serve the crosspoint web UI on its own, with no additional
+/// routes merged in. Runs until the process exits.
 pub async fn serve(bind: SocketAddr, crosspoint: Arc<Crosspoint>) -> std::io::Result<()> {
     let listener = tokio::net::TcpListener::bind(bind).await?;
     tracing::info!(%bind, "crosspoint web UI listening");

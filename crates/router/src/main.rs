@@ -1,4 +1,6 @@
 mod config;
+mod management;
+mod registry;
 mod state;
 
 use std::collections::HashMap;
@@ -8,6 +10,8 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use config::Config;
 use crosspoint_core::Crosspoint;
+use management::ManageState;
+use registry::Registry;
 
 /// Crosspoint-based SRT router.
 #[derive(Parser)]
@@ -31,10 +35,17 @@ async fn main() -> Result<()> {
         .with_context(|| format!("parsing config file {}", args.config.display()))?;
 
     let crosspoint = Crosspoint::new();
+    let registry = Registry::new();
 
+    // Config-defined and management-API-added sources/outputs are
+    // deliberately the same thing once running — both end up in `registry`
+    // via the same spawn_input/spawn_output + insert_* calls, so a
+    // config-declared source is exactly as removable via the API (or
+    // listable in the web UI's add/remove menus) as one added later.
     for input in config.inputs {
         tracing::info!(id = %input.id, "starting SRT input");
-        srt_io::spawn_input(input.id, input.endpoint, crosspoint.clone());
+        let cancel = srt_io::spawn_input(input.id.clone(), input.endpoint, crosspoint.clone());
+        registry.insert_source(input.id, "srt", cancel);
     }
 
     let persisted_routes: HashMap<String, String> = match &config.state {
@@ -58,12 +69,13 @@ async fn main() -> Result<()> {
             .cloned()
             .unwrap_or(output.default_source);
         tracing::info!(id = %output.id, source = %initial_source, "starting SRT output");
-        srt_io::spawn_output(
-            output.id,
+        let cancel = srt_io::spawn_output(
+            output.id.clone(),
             output.endpoint,
             initial_source,
             crosspoint.clone(),
         );
+        registry.insert_output(output.id, "srt", cancel);
     }
 
     if let Some(state_cfg) = config.state {
@@ -76,6 +88,13 @@ async fn main() -> Result<()> {
         .parse()
         .with_context(|| format!("invalid web.bind address {:?}", config.web.bind))?;
 
-    crosspoint_web::serve(bind, crosspoint).await?;
+    let manage_state = ManageState {
+        crosspoint: crosspoint.clone(),
+        registry,
+    };
+    let app = crosspoint_web::app(crosspoint).merge(management::router(manage_state));
+    let listener = tokio::net::TcpListener::bind(bind).await?;
+    tracing::info!(%bind, "crosspoint web UI listening");
+    axum::serve(listener, app).await?;
     Ok(())
 }

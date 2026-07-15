@@ -62,6 +62,29 @@ impl Crosspoint {
         self.sources.read().get(source).map(|tx| tx.subscribe())
     }
 
+    /// Remove a source. Any output currently routed to it keeps its `watch`
+    /// value pointing at the now-gone id (routing is a separate concern,
+    /// see [`route`](Self::route)) but its `subscribe` will start returning
+    /// `None`/closed — the caller (a `*-io` crate's output task) is expected
+    /// to treat that the same as "nothing routed yet" until re-routed.
+    /// Returns `true` if a source with this id existed.
+    pub fn deregister_source(&self, id: &str) -> bool {
+        self.sources.write().remove(id).is_some()
+    }
+
+    /// Remove an output. Returns `true` if an output with this id existed.
+    pub fn deregister_output(&self, id: &str) -> bool {
+        self.outputs.write().remove(id).is_some()
+    }
+
+    pub fn has_source(&self, id: &str) -> bool {
+        self.sources.read().contains_key(id)
+    }
+
+    pub fn has_output(&self, id: &str) -> bool {
+        self.outputs.read().contains_key(id)
+    }
+
     /// Point an output at a different source. No-ops (returns `false`) if
     /// either id is unknown, so callers (e.g. the web API) can distinguish
     /// a bad request from a successful re-route.
@@ -125,5 +148,24 @@ mod tests {
         xp.register_output("out1", "a");
         assert!(!xp.route("out1", "nonexistent"));
         assert!(!xp.route("nonexistent", "a"));
+    }
+
+    #[test]
+    fn deregister_removes_and_reports_prior_existence() {
+        let xp = Crosspoint::new();
+        xp.register_source("a");
+        xp.register_output("out1", "a");
+
+        assert!(xp.has_source("a"));
+        assert!(xp.has_output("out1"));
+
+        assert!(xp.deregister_source("a"));
+        assert!(!xp.has_source("a"));
+        assert!(!xp.deregister_source("a"), "second removal reports false");
+
+        assert!(xp.deregister_output("out1"));
+        assert!(!xp.has_output("out1"));
+
+        assert!(xp.subscribe("a").is_none());
     }
 }

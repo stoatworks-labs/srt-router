@@ -8,3 +8,6 @@ license.workspace = true
 bytes = "1"
 tokio = { version = "1", features = ["sync"] }
 parking_lot = "0.12"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["sync", "macros", "rt"] }

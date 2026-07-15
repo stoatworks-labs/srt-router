@@ -12,34 +12,161 @@
     font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
   h1 { font-size: 1.1rem; font-weight: 600; color: #9fb4ff; margin: 0 0 1.25rem; }
+  h2 { font-size: 0.85rem; font-weight: 600; color: #b7bfca; margin: 0; text-transform: uppercase; letter-spacing: 0.03em; }
   table { border-collapse: collapse; }
   th, td {
     border: 1px solid #2a2d33; padding: 0;
-    min-width: 84px; height: 40px; text-align: center;
+    min-width: 96px; height: 40px; text-align: center;
   }
-  th { background: #1c1f26; font-weight: 500; font-size: 0.85rem; padding: 0.5rem; white-space: nowrap; }
-  th.row-label { text-align: right; padding-right: 0.75rem; }
-  td button {
+  th { background: #1c1f26; font-weight: 500; font-size: 0.85rem; padding: 0.4rem 0.5rem; white-space: nowrap; }
+  th.row-label { text-align: right; padding-right: 0.5rem; }
+  .th-inner { display: flex; align-items: center; justify-content: center; gap: 0.4rem; }
+  th.row-label .th-inner { justify-content: flex-end; }
+  .kind-badge {
+    font-size: 0.65rem; font-weight: 600; color: #8a8f98; background: #22262e;
+    border-radius: 3px; padding: 0.05rem 0.3rem; text-transform: uppercase;
+  }
+  .remove-btn {
+    border: none; background: transparent; color: #6b7280; cursor: pointer;
+    font-size: 0.85rem; line-height: 1; padding: 0.1rem 0.25rem; border-radius: 3px;
+  }
+  .remove-btn:hover { background: #4a2020; color: #ff9b9b; }
+  td button.cell {
     width: 100%; height: 100%; border: none; background: transparent;
     color: #666; cursor: pointer; font-size: 1.1rem;
   }
-  td button:hover { background: #22262e; }
-  td.active button { background: #2f6f4f; color: #d4ffe6; font-weight: bold; }
-  td.active button:hover { background: #37835c; }
-  #status { margin-top: 1rem; font-size: 0.8rem; color: #777; }
+  td button.cell:hover { background: #22262e; }
+  td.active button.cell { background: #2f6f4f; color: #d4ffe6; font-weight: bold; }
+  td.active button.cell:hover { background: #37835c; }
+  #status { margin-top: 1rem; font-size: 0.8rem; color: #777; min-height: 1.2em; }
   #empty { color: #888; }
   #disclaimer { margin-top: 2.5rem; font-size: 0.75rem; color: #565b64; max-width: 32rem; }
+
+  #manage { display: flex; gap: 2.5rem; margin-top: 2.5rem; flex-wrap: wrap; }
+  .manage-col { min-width: 20rem; }
+  .manage-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem; }
+  .add-btn {
+    font-size: 0.78rem; color: #9fb4ff; background: #1c2333; border: 1px solid #2c3550;
+    border-radius: 4px; padding: 0.3rem 0.6rem; cursor: pointer;
+  }
+  .add-btn:hover { background: #232c44; }
+  .add-form {
+    background: #1a1d24; border: 1px solid #2a2d33; border-radius: 6px;
+    padding: 0.8rem; margin-bottom: 0.6rem; display: flex; flex-direction: column; gap: 0.5rem;
+  }
+  .add-form.hidden { display: none; }
+  .add-form input, .add-form select {
+    background: #101216; border: 1px solid #2a2d33; color: #e6e6e6;
+    border-radius: 4px; padding: 0.4rem 0.5rem; font-size: 0.85rem; font-family: inherit;
+  }
+  .add-form .row { display: flex; gap: 0.5rem; }
+  .add-form .row > * { flex: 1; }
+  .add-form .actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+  .add-form button[type="submit"] {
+    background: #2f6f4f; border: none; color: #eafff2; border-radius: 4px;
+    padding: 0.35rem 0.8rem; cursor: pointer; font-size: 0.82rem;
+  }
+  .add-form button[type="submit"]:hover { background: #37835c; }
+  .add-form button.cancel {
+    background: transparent; border: 1px solid #3a3f47; color: #b7bfca; border-radius: 4px;
+    padding: 0.35rem 0.8rem; cursor: pointer; font-size: 0.82rem;
+  }
+  .add-form .hint { font-size: 0.72rem; color: #6b7280; }
+  .add-form option:disabled { color: #4a4f57; }
 </style>
 </head>
 <body>
 <h1>SRT Router — Crosspoint</h1>
 <div id="grid"><p id="empty">Loading…</p></div>
 <div id="status"></div>
+
+<div id="manage">
+  <div class="manage-col">
+    <div class="manage-header">
+      <h2>Sources</h2>
+      <button type="button" class="add-btn" data-toggle="add-source-form">+ Add source</button>
+    </div>
+    <form id="add-source-form" class="add-form hidden">
+      <div class="row">
+        <input name="entry_id" placeholder="id, e.g. cam3" required>
+        <select name="transport">
+          <option value="srt">SRT</option>
+          <option value="ndi" disabled>NDI (not wired into this build yet)</option>
+          <option value="scaler" disabled>Scaler (Phase 2 — not built yet)</option>
+          <option value="media-player" disabled>Media player (Phase 2 — not built yet)</option>
+        </select>
+      </div>
+      <div class="row">
+        <select name="mode">
+          <option value="listener">listener — wait for a connection</option>
+          <option value="caller">caller — dial out</option>
+        </select>
+        <input name="address" placeholder="0.0.0.0:5003" required>
+      </div>
+      <p class="hint" data-hint>Router waits on this address for the encoder to connect.</p>
+      <div class="actions">
+        <button type="button" class="cancel" data-toggle="add-source-form">Cancel</button>
+        <button type="submit">Add source</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="manage-col">
+    <div class="manage-header">
+      <h2>Destinations</h2>
+      <button type="button" class="add-btn" data-toggle="add-output-form">+ Add destination</button>
+    </div>
+    <form id="add-output-form" class="add-form hidden">
+      <div class="row">
+        <input name="entry_id" placeholder="id, e.g. aux" required>
+        <select name="transport">
+          <option value="srt">SRT</option>
+          <option value="ndi" disabled>NDI (not wired into this build yet)</option>
+          <option value="scaler" disabled>Scaler (Phase 2 — not built yet)</option>
+          <option value="media-player" disabled>Media player (Phase 2 — not built yet)</option>
+        </select>
+      </div>
+      <div class="row">
+        <select name="mode">
+          <option value="listener">listener — wait for a connection</option>
+          <option value="caller">caller — dial out</option>
+        </select>
+        <input name="address" placeholder="0.0.0.0:6003" required>
+      </div>
+      <select name="default_source"></select>
+      <p class="hint" data-hint>Router waits on this address for the decoder to connect.</p>
+      <div class="actions">
+        <button type="button" class="cancel" data-toggle="add-output-form">Cancel</button>
+        <button type="submit">Add destination</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <p id="disclaimer">AI-assisted project (built with Claude), reviewed by a human author. See the repo README for current verification status.</p>
 <script>
+let lastState = { sources: [], outputs: [], routes: {} };
+let sourceKinds = {};
+let outputKinds = {};
+
 async function fetchState() {
   const res = await fetch('/api/state');
   return res.json();
+}
+
+async function fetchKinds() {
+  try {
+    const [srcRes, outRes] = await Promise.all([
+      fetch('/api/manage/sources'),
+      fetch('/api/manage/outputs'),
+    ]);
+    const [srcList, outList] = [await srcRes.json(), await outRes.json()];
+    sourceKinds = Object.fromEntries(srcList.map((e) => [e.id, e.kind]));
+    outputKinds = Object.fromEntries(outList.map((e) => [e.id, e.kind]));
+  } catch (e) {
+    // Management API not reachable for some reason — grid still works via
+    // /api/state, kind badges just won't show. Not fatal.
+  }
 }
 
 async function setRoute(output, source) {
@@ -58,31 +185,70 @@ function setStatus(text) {
   document.getElementById('status').textContent = text;
 }
 
+async function removeEntry(kindPath, id) {
+  if (!confirm(`Remove ${id}?`)) return;
+  const res = await fetch(`/api/manage/${kindPath}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    setStatus(`Failed to remove ${id}: ${body.error || res.status}`);
+    return;
+  }
+  setStatus('');
+  await fetchKinds();
+  render(lastState);
+}
+
 function render(state) {
+  lastState = state;
   const grid = document.getElementById('grid');
   if (state.outputs.length === 0 || state.sources.length === 0) {
-    grid.innerHTML = '<p id="empty">No sources/outputs configured yet — see config/example.toml.</p>';
+    grid.innerHTML = '<p id="empty">No sources/destinations yet — add one below, or see config/example.toml.</p>';
     return;
   }
   let html = '<table><thead><tr><th></th>';
-  for (const src of state.sources) html += `<th>${escapeHtml(src)}</th>`;
+  for (const src of state.sources) {
+    const kind = sourceKinds[src] ? `<span class="kind-badge">${escapeHtml(sourceKinds[src])}</span>` : '';
+    html += `<th><div class="th-inner">${escapeHtml(src)}${kind}<button class="remove-btn" data-remove-source="${escapeHtml(src)}" title="Remove source">×</button></div></th>`;
+  }
   html += '</tr></thead><tbody>';
   for (const out of state.outputs) {
-    html += `<tr><th class="row-label">${escapeHtml(out)}</th>`;
+    const kind = outputKinds[out] ? `<span class="kind-badge">${escapeHtml(outputKinds[out])}</span>` : '';
+    html += `<tr><th class="row-label"><div class="th-inner"><button class="remove-btn" data-remove-output="${escapeHtml(out)}" title="Remove destination">×</button>${kind}${escapeHtml(out)}</div></th>`;
     for (const src of state.sources) {
       const active = state.routes[out] === src;
-      html += `<td class="${active ? 'active' : ''}"><button data-out="${escapeHtml(out)}" data-src="${escapeHtml(src)}">${active ? '●' : ''}</button></td>`;
+      html += `<td class="${active ? 'active' : ''}"><button class="cell" data-out="${escapeHtml(out)}" data-src="${escapeHtml(src)}">${active ? '●' : ''}</button></td>`;
     }
     html += '</tr>';
   }
   html += '</tbody></table>';
   grid.innerHTML = html;
-  grid.querySelectorAll('button[data-out]').forEach((btn) => {
+  grid.querySelectorAll('button.cell').forEach((btn) => {
     btn.addEventListener('click', () => {
       setStatus('');
       setRoute(btn.dataset.out, btn.dataset.src);
     });
   });
+  grid.querySelectorAll('[data-remove-source]').forEach((btn) => {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      removeEntry('sources', btn.dataset.removeSource);
+    });
+  });
+  grid.querySelectorAll('[data-remove-output]').forEach((btn) => {
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      removeEntry('outputs', btn.dataset.removeOutput);
+    });
+  });
+  populateDefaultSourceOptions();
+}
+
+function populateDefaultSourceOptions() {
+  const select = document.querySelector('#add-output-form select[name="default_source"]');
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = lastState.sources.map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+  if (lastState.sources.includes(current)) select.value = current;
 }
 
 function escapeHtml(s) {
@@ -111,8 +277,83 @@ function connectLive() {
   ws.addEventListener('error', () => ws.close());
 }
 
+// --- Add source / destination forms ---
+
+document.querySelectorAll('[data-toggle]').forEach((el) => {
+  el.addEventListener('click', () => {
+    document.getElementById(el.dataset.toggle).classList.toggle('hidden');
+  });
+});
+
+document.querySelectorAll('.add-form select[name="mode"]').forEach((select) => {
+  const form = select.closest('form');
+  const hint = form.querySelector('[data-hint]');
+  const addressInput = form.querySelector('input[name="address"]');
+  const update = () => {
+    if (select.value === 'listener') {
+      hint.textContent = form.id === 'add-source-form'
+        ? 'Router waits on this address for the encoder to connect.'
+        : 'Router waits on this address for the decoder to connect.';
+      addressInput.placeholder = form.id === 'add-source-form' ? '0.0.0.0:5003' : '0.0.0.0:6003';
+    } else {
+      hint.textContent = 'Router dials out to this address.';
+      addressInput.placeholder = '203.0.113.10:5000';
+    }
+  };
+  select.addEventListener('change', update);
+  update();
+});
+
+async function submitAddForm(form, path, buildBody) {
+  const data = new FormData(form);
+  const body = buildBody(data);
+  const res = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    setStatus(`Add failed: ${err.error || res.status}`);
+    return;
+  }
+  form.reset();
+  form.classList.add('hidden');
+  setStatus('');
+  await fetchKinds();
+  render(lastState);
+}
+
+document.getElementById('add-source-form').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  submitAddForm(ev.target, '/api/manage/sources', (data) => {
+    const mode = data.get('mode');
+    return {
+      id: data.get('entry_id'),
+      mode,
+      ...(mode === 'listener' ? { bind: data.get('address') } : { connect: data.get('address') }),
+    };
+  });
+});
+
+document.getElementById('add-output-form').addEventListener('submit', (ev) => {
+  ev.preventDefault();
+  submitAddForm(ev.target, '/api/manage/outputs', (data) => {
+    const mode = data.get('mode');
+    return {
+      id: data.get('entry_id'),
+      mode,
+      default_source: data.get('default_source'),
+      ...(mode === 'listener' ? { bind: data.get('address') } : { connect: data.get('address') }),
+    };
+  });
+});
+
 // First paint over plain REST (fast, works even if the websocket upgrade is
-// ever blocked by something in between), then switch to live push.
+// ever blocked by something in between), then switch to live push. Kinds
+// come from a separate, infrequently-changing endpoint so they don't need
+// to ride the same fast poll/push loop as routing state.
+fetchKinds();
 tick().finally(connectLive);
 </script>
 </body>

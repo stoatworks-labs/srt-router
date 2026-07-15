@@ -12,7 +12,10 @@ path = "src/main.rs"
 crosspoint-core = { path = "../core" }
 srt-io = { path = "../srt-io" }
 crosspoint-web = { path = "../web" }
+axum = "0.7"
 tokio = { version = "1", features = ["full"] }
+tokio-util = "0.7"
+parking_lot = "0.12"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.8"
