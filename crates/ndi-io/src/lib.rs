@@ -27,6 +27,7 @@ use grafton_ndi::{
 };
 use serde::Deserialize;
 use tokio::sync::{broadcast, watch};
+use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
 
 #[derive(Debug, Clone, Deserialize)]
@@ -55,48 +56,66 @@ enum NdiIoError {
 /// Spawn the task for one NDI input: discover the named source, capture
 /// video/audio/metadata frames, publish each as an envelope onto the
 /// crosspoint's broadcast channel for `id`. Reconnects (re-discovers) on
-/// disconnect. Runs until the process exits.
-pub fn spawn_input(id: String, endpoint: Endpoint, crosspoint: Arc<Crosspoint>) {
+/// disconnect. Runs until cancelled (or the process exits).
+pub fn spawn_input(
+    id: String,
+    endpoint: Endpoint,
+    crosspoint: Arc<Crosspoint>,
+) -> CancellationToken {
+    let cancel = CancellationToken::new();
+    let task_cancel = cancel.clone();
     let tx = crosspoint.register_source(id.clone());
     tokio::task::spawn_blocking(move || {
         let Endpoint::Receiver { source_name } = endpoint else {
             tracing::error!(source = %id, "ndi-io::spawn_input called with a Sender endpoint");
             return;
         };
-        loop {
-            match run_receiver(&id, &source_name, &tx) {
+        while !task_cancel.is_cancelled() {
+            match run_receiver(&id, &source_name, &tx, &task_cancel) {
                 Ok(()) => {}
                 Err(err) => warn!(source = %id, %err, "NDI input error, retrying"),
             }
+            if task_cancel.is_cancelled() {
+                break;
+            }
             std::thread::sleep(RETRY_DELAY);
         }
+        info!(source = %id, "NDI input stopped");
     });
+    cancel
 }
 
 /// Spawn the task for one NDI output: advertise `name` on the network,
 /// forward whatever payload the crosspoint currently routes to `id` by
 /// decoding each envelope and re-sending the equivalent NDI frame. Runs
-/// until the process exits.
+/// until cancelled (or the process exits).
 pub fn spawn_output(
     id: String,
     endpoint: Endpoint,
     default_source: String,
     crosspoint: Arc<Crosspoint>,
-) {
+) -> CancellationToken {
+    let cancel = CancellationToken::new();
+    let task_cancel = cancel.clone();
     let route_rx = crosspoint.register_output(id.clone(), default_source);
     tokio::task::spawn_blocking(move || {
         let Endpoint::Sender { name } = endpoint else {
             tracing::error!(output = %id, "ndi-io::spawn_output called with a Receiver endpoint");
             return;
         };
-        loop {
-            match run_sender(&id, &name, route_rx.clone(), &crosspoint) {
+        while !task_cancel.is_cancelled() {
+            match run_sender(&id, &name, route_rx.clone(), &crosspoint, &task_cancel) {
                 Ok(()) => {}
                 Err(err) => warn!(output = %id, %err, "NDI output error, retrying"),
             }
+            if task_cancel.is_cancelled() {
+                break;
+            }
             std::thread::sleep(RETRY_DELAY);
         }
+        info!(output = %id, "NDI output stopped");
     });
+    cancel
 }
 
 fn find_source_by_name(finder: &Finder, wanted: &str) -> Result<Source, NdiIoError> {
@@ -113,6 +132,7 @@ fn run_receiver(
     id: &str,
     source_name: &str,
     tx: &broadcast::Sender<bytes::Bytes>,
+    cancel: &CancellationToken,
 ) -> Result<(), NdiIoError> {
     let ndi = NDI::new()?;
     let finder = Finder::new(
@@ -139,7 +159,7 @@ fn run_receiver(
     let mut last_frame_at = std::time::Instant::now();
     const SILENCE_TIMEOUT: Duration = Duration::from_secs(30);
 
-    loop {
+    while !cancel.is_cancelled() {
         let mut got_frame = false;
         if let Some(frame) = receiver.video().try_capture(Duration::from_millis(200))? {
             let _ = tx.send(envelope::encode_video(&frame));
@@ -159,6 +179,7 @@ fn run_receiver(
             return Err(NdiIoError::Disconnected);
         }
     }
+    Ok(())
 }
 
 fn run_sender(
@@ -166,18 +187,19 @@ fn run_sender(
     name: &str,
     mut route_rx: watch::Receiver<String>,
     crosspoint: &Arc<Crosspoint>,
+    cancel: &CancellationToken,
 ) -> Result<(), NdiIoError> {
     let ndi = NDI::new()?;
     let sender = Sender::new(&ndi, &SenderOptions::builder(name).build())?;
     info!(output = %id, ndi_name = %name, "NDI output advertising");
 
-    loop {
+    while !cancel.is_cancelled() {
         let current = route_rx.borrow_and_update().clone();
         let Some(mut rx) = crosspoint.subscribe(&current) else {
             std::thread::sleep(OUTPUT_ROUTE_POLL);
             continue;
         };
-        loop {
+        while !cancel.is_cancelled() {
             if route_rx.has_changed().unwrap_or(false) {
                 break; // re-subscribe to the newly routed source
             }
@@ -202,4 +224,5 @@ fn run_sender(
             }
         }
     }
+    Ok(())
 }

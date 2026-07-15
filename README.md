@@ -48,8 +48,9 @@ trusted operations network, the same trust model as a hardware router's
 control port.
 
 **Transports beyond SRT:** `crates/ndi-io` is a real, tested NDI transport
-(see [Status](#status)) but isn't wired into the router binary/web UI yet —
-the add-source/add-destination menus show NDI as a disabled option for now.
+(see [Status](#status)), usable from the TOML config behind an opt-in `ndi`
+Cargo feature — but not yet from the runtime add-source/add-destination API,
+so the web UI still shows NDI as a disabled dropdown option for now.
 `crates/omt-io` is a placeholder for the equivalent OMT transport (open,
 MIT-licensed) — not yet implemented, see [docs/roadmap.md](docs/roadmap.md).
 
@@ -79,9 +80,11 @@ Working:
   reload on restart, overriding each output's `default_source`.
 - `crates/ndi-io`: a real NDI transport using
   [grafton-ndi](https://github.com/GrantSparks/grafton-ndi) (Apache-2.0)
-  against the actual NDI SDK — not wired into the router binary yet (see
-  [What it does](#what-it-does)), but its own integration test drives a real
-  NDI sender and receiver against it, consistently passing.
+  against the actual NDI SDK, with its own integration test driving a real
+  NDI sender and receiver against it, consistently passing. Now usable from
+  `srtrouter`'s TOML config behind an opt-in `ndi` Cargo feature (`cargo run
+  --features ndi`) — not yet in the runtime add/remove API or web UI menus,
+  see [What it does](#what-it-does).
 - CI (GitHub Actions) runs `fmt --check`, `clippy -D warnings`, and the full
   test suite on every push/PR — SRT-only (`ndi-io`/`omt-io` need real
   SDKs CI can't install, so they're real workspace members but excluded

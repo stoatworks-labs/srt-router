@@ -1,7 +1,19 @@
 use std::path::PathBuf;
 
 use serde::Deserialize;
-use srt_io::Endpoint;
+
+/// Which transport an input/output uses. Untagged: `srt_io::Endpoint`'s
+/// `mode` is `listener`/`caller` and `ndi_io::Endpoint`'s is
+/// `receiver`/`sender` — disjoint, so serde picks the right variant from
+/// the `mode` value alone with no explicit `transport =` field needed.
+/// Existing SRT-only config files keep working unchanged.
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum Transport {
+    Srt(srt_io::Endpoint),
+    #[cfg(feature = "ndi")]
+    Ndi(ndi_io::Endpoint),
+}
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -31,14 +43,14 @@ pub struct WebConfig {
 pub struct InputConfig {
     pub id: String,
     #[serde(flatten)]
-    pub endpoint: Endpoint,
+    pub endpoint: Transport,
 }
 
 #[derive(Deserialize)]
 pub struct OutputConfig {
     pub id: String,
     #[serde(flatten)]
-    pub endpoint: Endpoint,
+    pub endpoint: Transport,
     /// Source this output is routed from at startup.
     pub default_source: String,
 }

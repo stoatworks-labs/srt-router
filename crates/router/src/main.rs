@@ -43,9 +43,19 @@ async fn main() -> Result<()> {
     // config-declared source is exactly as removable via the API (or
     // listable in the web UI's add/remove menus) as one added later.
     for input in config.inputs {
-        tracing::info!(id = %input.id, "starting SRT input");
-        let cancel = srt_io::spawn_input(input.id.clone(), input.endpoint, crosspoint.clone());
-        registry.insert_source(input.id, "srt", cancel);
+        match input.endpoint {
+            config::Transport::Srt(ep) => {
+                tracing::info!(id = %input.id, "starting SRT input");
+                let cancel = srt_io::spawn_input(input.id.clone(), ep, crosspoint.clone());
+                registry.insert_source(input.id, "srt", cancel);
+            }
+            #[cfg(feature = "ndi")]
+            config::Transport::Ndi(ep) => {
+                tracing::info!(id = %input.id, "starting NDI input");
+                let cancel = ndi_io::spawn_input(input.id.clone(), ep, crosspoint.clone());
+                registry.insert_source(input.id, "ndi", cancel);
+            }
+        }
     }
 
     let persisted_routes: HashMap<String, String> = match &config.state {
@@ -68,14 +78,21 @@ async fn main() -> Result<()> {
             .get(&output.id)
             .cloned()
             .unwrap_or(output.default_source);
-        tracing::info!(id = %output.id, source = %initial_source, "starting SRT output");
-        let cancel = srt_io::spawn_output(
-            output.id.clone(),
-            output.endpoint,
-            initial_source,
-            crosspoint.clone(),
-        );
-        registry.insert_output(output.id, "srt", cancel);
+        match output.endpoint {
+            config::Transport::Srt(ep) => {
+                tracing::info!(id = %output.id, source = %initial_source, "starting SRT output");
+                let cancel =
+                    srt_io::spawn_output(output.id.clone(), ep, initial_source, crosspoint.clone());
+                registry.insert_output(output.id, "srt", cancel);
+            }
+            #[cfg(feature = "ndi")]
+            config::Transport::Ndi(ep) => {
+                tracing::info!(id = %output.id, source = %initial_source, "starting NDI output");
+                let cancel =
+                    ndi_io::spawn_output(output.id.clone(), ep, initial_source, crosspoint.clone());
+                registry.insert_output(output.id, "ndi", cancel);
+            }
+        }
     }
 
     if let Some(state_cfg) = config.state {

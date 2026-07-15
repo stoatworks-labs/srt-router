@@ -43,11 +43,17 @@
       through `crosspoint-core`'s existing `Bytes` channel — see
       [architecture.md](architecture.md#this-isnt-hypothetical--cratesndi-io-proves-it).
       Verified for real: `crates/ndi-io/tests/relay.rs` drives an actual
-      NDI sender and receiver against it, consistently passing. **Not yet
-      wired into `srtrouter`**: no config schema support, and
-      `management.rs`'s add-source/add-destination API is SRT-only — the
-      web UI shows NDI as a disabled option in the transport dropdown
-      until this lands. Also excluded from CI (needs the real SDK
+      NDI sender and receiver against it, consistently passing.
+      **Config-only for now**: `crates/router` gained an optional `ndi`
+      Cargo feature and `config::Transport` (an untagged enum picking
+      `srt_io::Endpoint` vs `ndi_io::Endpoint` by their disjoint `mode`
+      values, so existing SRT-only TOML files need no changes) — build
+      with `cargo run --features ndi` and add `mode = "receiver"` /
+      `"sender"` inputs/outputs to use it. `management.rs`'s runtime
+      add-source/add-destination API is still SRT-only, so the web UI
+      still shows NDI as a disabled dropdown option — that's the next
+      remaining gap, not the config path. Also excluded from default CI
+      (needs the real SDK
       installed, which CI can't do).
 - [ ] **OMT** — `crates/omt-io` exists only as a placeholder. OMT itself is
       a genuinely open, MIT-licensed protocol (unlike NDI), but the only

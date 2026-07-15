@@ -969,6 +969,7 @@ dependencies = [
  "serde",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-util",
  "tracing",
  "tracing-subscriber",
 ]
@@ -1494,6 +1495,7 @@ dependencies = [
  "clap",
  "crosspoint-core",
  "crosspoint-web",
+ "ndi-io",
  "parking_lot",
  "serde",
  "serde_json",
