@@ -5,6 +5,19 @@ members = [
     "crates/srt-io",
     "crates/web",
     "crates/router",
+    "crates/ndi-io",
+    "crates/omt-io",
+]
+# Plain `cargo build`/`cargo test` (no -p) only touches these — the SRT-only
+# core, unaffected by whether the NDI SDK or libomt are installed. ndi-io and
+# omt-io are still real workspace members (buildable/testable via `-p`, and
+# pulled in by crates/router's opt-in `ndi`/`omt` Cargo features) but require
+# real, non-crates.io SDKs to build; see README's Transports section.
+default-members = [
+    "crates/core",
+    "crates/srt-io",
+    "crates/web",
+    "crates/router",
 ]
 
 [workspace.package]

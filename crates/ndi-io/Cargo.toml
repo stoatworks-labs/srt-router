@@ -1,0 +1,17 @@
+[package]
+name = "ndi-io"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+crosspoint-core = { path = "../core" }
+grafton-ndi = "1.0"
+tokio = { version = "1", features = ["full"] }
+bytes = "1"
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+tracing = "0.1"
+
+[dev-dependencies]
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
