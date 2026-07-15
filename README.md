@@ -2,11 +2,12 @@
 
 > **AI-assisted project.** This codebase was created with [Claude](https://claude.com/claude-code)
 > (Anthropic), directed and reviewed by a human author. The relay/crosspoint
-> engine and web UI have been exercised locally (unit tests, real SRT
-> listener sockets, a live crosspoint switch via the web UI — see
-> [Status](#status)) but **not yet run against real-world SRT
-> encoders/decoders or over an actual network path**. Review before relying
-> on it for anything live.
+> engine and web UI have been exercised locally — including integration
+> tests that relay real SRT protocol traffic end-to-end and a live
+> crosspoint switch via the web UI, see [Status](#status) — but **not yet
+> run against real-world third-party SRT encoders/decoders or over an
+> actual (non-loopback) network path**. Review before relying on it for
+> anything live.
 
 A crosspoint-based [SRT](https://www.srtalliance.org/) router: any number of
 SRT inputs, any number of SRT outputs, and a router-style crosspoint (each
@@ -44,19 +45,29 @@ hardware router's control port.
 - The crosspoint engine (`crates/core`) — output-follows-route-change
   behavior is unit tested.
 - A local web UI (`crates/web`) — grid of outputs x sources, click to route,
-  polls `/api/state` once a second.
-- Verified locally: `cargo test` passes; running the binary against
-  `config/example.toml` actually binds real UDP/SRT listener sockets
-  (confirmed via `lsof`), the REST API drives real crosspoint state changes,
-  and clicking a cell in the web UI (in a real browser) correctly re-routes
-  an output.
+  updated live over a websocket (`GET /ws`) with a REST poll (`GET
+  /api/state`) as first paint / fallback.
+- Routing changes optionally persist to disk (`[state]` in the config) and
+  reload on restart, overriding each output's `default_source`.
+- CI (GitHub Actions) runs `fmt --check`, `clippy -D warnings`, and the full
+  test suite on every push/PR.
+- Verified locally, not just compiled: `cargo test` passes, including
+  integration tests (`crates/srt-io/tests/relay.rs`) that relay real SRT
+  protocol traffic end-to-end through the crosspoint using `srt-tokio`
+  clients as the encoder/decoder — one test also exercises a **live
+  re-route mid-stream over an already-established SRT connection**.
+  Separately confirmed by hand: running the binary against
+  `config/example.toml` binds real UDP/SRT listener sockets (via `lsof`),
+  the REST API and a real browser click both drive live crosspoint changes,
+  the websocket push updates the grid with no client-side polling, and a
+  persisted route survives a real process restart.
 
-**Not yet done:** no test against a real SRT encoder/decoder or over a real
-network (only loopback-adjacent local testing so far), no persistence of
-routing across a restart, no special-purpose sources (stills/media
-player/scaler), no auth on the web UI/API, no external control
-API/Companion integration. See [docs/roadmap.md](docs/roadmap.md) for the
-full phased plan.
+**Not yet done:** no test against a real third-party SRT
+encoder/decoder or over a real (non-loopback) network path — only local
+testing so far, still the main open gap. Also missing: special-purpose
+sources (stills/media player/scaler), auth on the web UI/API, external
+control API/Companion integration. See [docs/roadmap.md](docs/roadmap.md)
+for the full phased plan.
 
 ## Quick start
 

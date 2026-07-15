@@ -95,8 +95,23 @@ async function tick() {
   }
 }
 
-tick();
-setInterval(tick, 1000);
+const RECONNECT_DELAY_MS = 2000;
+
+function connectLive() {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const ws = new WebSocket(`${proto}//${location.host}/ws`);
+  ws.addEventListener('open', () => setStatus(''));
+  ws.addEventListener('message', (ev) => render(JSON.parse(ev.data)));
+  ws.addEventListener('close', () => {
+    setStatus('Disconnected, retrying…');
+    setTimeout(connectLive, RECONNECT_DELAY_MS);
+  });
+  ws.addEventListener('error', () => ws.close());
+}
+
+// First paint over plain REST (fast, works even if the websocket upgrade is
+// ever blocked by something in between), then switch to live push.
+tick().finally(connectLive);
 </script>
 </body>
 </html>

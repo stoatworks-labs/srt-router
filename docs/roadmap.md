@@ -10,9 +10,18 @@
 - [x] TOML-configured router binary (`crates/router`).
 - [x] Verified locally: unit tests, real bound SRT/UDP listener sockets,
       live route changes via both the REST API and an actual browser click.
-- [ ] Verified against a real SRT encoder/decoder or over a real network
-      path — only local/loopback-adjacent testing has happened so far. This
-      is the main open gap before treating Phase 1 as production-ready.
+- [x] Integration tests that relay real SRT protocol traffic end-to-end
+      through the crosspoint (`crates/srt-io/tests/relay.rs`), using
+      `srt-tokio` clients as the encoder/decoder — including a live
+      re-route mid-stream over an already-established connection. This is
+      meaningfully stronger than the loopback/`lsof`-level checks above,
+      though it's still this router's own SRT stack talking to itself, not
+      third-party hardware.
+- [x] CI (GitHub Actions): `fmt --check`, `clippy -D warnings`, `cargo
+      test` on every push/PR.
+- [ ] Verified against a real **third-party** SRT encoder/decoder or over a
+      real (non-loopback) network path — this is the one remaining gap
+      before treating Phase 1 as production-ready.
 
 ## Phase 2 — special-purpose sources
 
@@ -40,19 +49,26 @@ narrower codec support). Needs research before starting Phase 2.
 
 ## Phase 3 — operational hardening
 
-- Persist crosspoint routing across a restart (currently in-memory only —
-  a restart resets every output to its config `default_source`).
-- Auth (at least a shared secret) and optionally TLS on the web UI/API —
-  currently assumes a trusted operations network, same as most hardware
-  routers' control ports, but that assumption should be explicit and
-  optionally removable.
-- Websocket push for the web UI instead of 1s polling, for a snappier grid
-  and to stop hammering `/api/state` when idle.
-- Surface SRT connection health (the socket statistics `srt-tokio`/SRT
-  itself exposes — RTT, loss, bitrate) in the web UI and API, not just
-  connected/disconnected.
-- Multiview: thumbnail/preview of each source in the web UI grid, not just
-  its id.
+- [x] Persist crosspoint routing across a restart — optional `[state]` in
+      the TOML config, output -> source routes written to a JSON file
+      write-then-rename on change, reloaded at startup (overriding each
+      output's `default_source`). Off by default (in-memory only, as
+      before) unless `[state]` is configured. `crates/router/src/state.rs`.
+- [x] Websocket push for the web UI (`GET /ws`) instead of polling alone —
+      pushes on connect and on every state change (~200ms detection
+      latency), grid updates with zero client-side polling once connected.
+      REST `GET /api/state` kept for first paint and as a fallback if the
+      upgrade is ever blocked. `crates/web/src/lib.rs`.
+- [ ] Auth (at least a shared secret) and optionally TLS on the web UI/API —
+      currently assumes a trusted operations network, same as most hardware
+      routers' control ports, but that assumption should be explicit and
+      optionally removable. Not started — needs a decision on the auth
+      model (shared secret vs. something richer) before implementing.
+- [ ] Surface SRT connection health (the socket statistics `srt-tokio`/SRT
+      itself exposes — RTT, loss, bitrate) in the web UI and API, not just
+      connected/disconnected.
+- [ ] Multiview: thumbnail/preview of each source in the web UI grid, not
+      just its id.
 
 ## Phase 4 — external control
 

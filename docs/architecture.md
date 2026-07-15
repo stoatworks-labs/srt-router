@@ -76,9 +76,11 @@ at the cost of actually running a media pipeline for that one path — see
   `spawn_input`/`spawn_output`, each owning one socket and one reconnect
   loop (`listener`: re-`listen_on`; `caller`: re-`call`).
 - `crates/web` (`crosspoint-web`) — an `axum` server: `GET /api/state`,
-  `POST /api/route`, and a single embedded HTML/JS page
-  (`crates/web/static/index.html`) that polls `/api/state` once a second and
-  renders the routing grid. No websocket push yet — see roadmap.
+  `POST /api/route`, `GET /ws` (websocket push — sends the current state on
+  connect and again whenever it changes), and a single embedded HTML/JS
+  page (`crates/web/static/index.html`) that does one REST fetch for first
+  paint, then switches to the websocket for live updates (falling back to a
+  2s reconnect loop if the connection drops).
 - `crates/router` (bin `srtrouter`) — loads a TOML config
   ([config/example.toml](../config/example.toml)), registers every
   configured input/output with a shared `Crosspoint`, and starts the web
@@ -101,5 +103,13 @@ connect = "203.0.113.10:5000"
 ```
 
 Outputs are the same shape plus `default_source` (what they're routed from
-at startup — routing changes made afterward via the web UI/API are
-in-memory only and don't persist across a restart yet, see roadmap).
+at startup if nothing better is known — see below).
+
+Optionally, a top-level `[state]` section with a `path` enables persisting
+routing changes to disk: every time a route changes, the full output ->
+source table is written to that JSON file (write-then-rename, so a crash
+mid-write can't leave a corrupt file behind); on startup, any persisted
+route for a configured output overrides that output's `default_source`.
+Omit `[state]` to keep routing in-memory only, as before — every restart
+then resets to each output's `default_source`. See
+`crates/router/src/state.rs`.
