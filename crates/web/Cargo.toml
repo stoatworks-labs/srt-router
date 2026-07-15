@@ -1,0 +1,13 @@
+[package]
+name = "crosspoint-web"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+crosspoint-core = { path = "../core" }
+axum = "0.7"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"

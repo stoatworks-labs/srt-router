@@ -1,0 +1,39 @@
+# Example srtrouter configuration.
+#
+# Every input and output is one SRT endpoint, in either "listener" mode
+# (this router waits for the far end to connect) or "caller" mode (this
+# router dials out). Mix and match freely — a common setup is encoders
+# calling *in* to fixed input ports, and decoders/downstream systems
+# listening for this router to call *out* to them, but any combination
+# works.
+
+[web]
+# Local web UI + REST API for the crosspoint grid.
+bind = "0.0.0.0:8080"
+
+[[inputs]]
+id = "cam1"
+mode = "listener"
+bind = "0.0.0.0:5001"
+
+[[inputs]]
+id = "cam2"
+mode = "listener"
+bind = "0.0.0.0:5002"
+
+[[inputs]]
+id = "remote-feed"
+mode = "caller"
+connect = "203.0.113.10:5000"
+
+[[outputs]]
+id = "program"
+mode = "listener"
+bind = "0.0.0.0:6001"
+default_source = "cam1"
+
+[[outputs]]
+id = "preview"
+mode = "listener"
+bind = "0.0.0.0:6002"
+default_source = "cam2"

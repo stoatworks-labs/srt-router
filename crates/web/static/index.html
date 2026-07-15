@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SRT Router — Crosspoint</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 2rem;
+    background: #14161a; color: #e6e6e6;
+    font: 15px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  h1 { font-size: 1.1rem; font-weight: 600; color: #9fb4ff; margin: 0 0 1.25rem; }
+  table { border-collapse: collapse; }
+  th, td {
+    border: 1px solid #2a2d33; padding: 0;
+    min-width: 84px; height: 40px; text-align: center;
+  }
+  th { background: #1c1f26; font-weight: 500; font-size: 0.85rem; padding: 0.5rem; white-space: nowrap; }
+  th.row-label { text-align: right; padding-right: 0.75rem; }
+  td button {
+    width: 100%; height: 100%; border: none; background: transparent;
+    color: #666; cursor: pointer; font-size: 1.1rem;
+  }
+  td button:hover { background: #22262e; }
+  td.active button { background: #2f6f4f; color: #d4ffe6; font-weight: bold; }
+  td.active button:hover { background: #37835c; }
+  #status { margin-top: 1rem; font-size: 0.8rem; color: #777; }
+  #empty { color: #888; }
+</style>
+</head>
+<body>
+<h1>SRT Router — Crosspoint</h1>
+<div id="grid"><p id="empty">Loading…</p></div>
+<div id="status"></div>
+<script>
+async function fetchState() {
+  const res = await fetch('/api/state');
+  return res.json();
+}
+
+async function setRoute(output, source) {
+  const res = await fetch('/api/route', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ output, source }),
+  });
+  const body = await res.json();
+  if (!body.ok) {
+    setStatus('Route rejected: ' + output + ' <- ' + source);
+  }
+}
+
+function setStatus(text) {
+  document.getElementById('status').textContent = text;
+}
+
+function render(state) {
+  const grid = document.getElementById('grid');
+  if (state.outputs.length === 0 || state.sources.length === 0) {
+    grid.innerHTML = '<p id="empty">No sources/outputs configured yet — see config/example.toml.</p>';
+    return;
+  }
+  let html = '<table><thead><tr><th></th>';
+  for (const src of state.sources) html += `<th>${escapeHtml(src)}</th>`;
+  html += '</tr></thead><tbody>';
+  for (const out of state.outputs) {
+    html += `<tr><th class="row-label">${escapeHtml(out)}</th>`;
+    for (const src of state.sources) {
+      const active = state.routes[out] === src;
+      html += `<td class="${active ? 'active' : ''}"><button data-out="${escapeHtml(out)}" data-src="${escapeHtml(src)}">${active ? '●' : ''}</button></td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  grid.innerHTML = html;
+  grid.querySelectorAll('button[data-out]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      setStatus('');
+      setRoute(btn.dataset.out, btn.dataset.src);
+    });
+  });
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function tick() {
+  try {
+    render(await fetchState());
+  } catch (e) {
+    setStatus('Failed to reach router: ' + e);
+  }
+}
+
+tick();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>
