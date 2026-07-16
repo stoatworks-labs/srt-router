@@ -1,0 +1,21 @@
+# SRT Router launcher config — paths are relative to the app's bundled
+# resources (see tauri.conf.json `bundle.resources`), so the shipped .app is
+# self-contained: it carries the srtrouter binary and a config template.
+#
+# cwd is omitted on purpose: the launcher then runs the server from its writable
+# app-config dir, where it also writes the rendered config and state/.
+
+[app]
+name = "SRT Router"
+command = "bin/srtrouter"
+args = ["--config", "{config}"]
+url = "http://{host}:{port}/"
+default_port = 8080
+
+[inject]
+mode = "configfile"
+
+[inject.configfile]
+template = "bin/server-config.toml"
+set_key = "web.bind"
+value = "{host}:{port}"

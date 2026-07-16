@@ -121,6 +121,16 @@ Then open `http://localhost:8080` for the crosspoint grid. Edit
 file) to declare your actual inputs/outputs — see the comments in that file
 for the config format.
 
+## Desktop launcher
+
+Prefer not to touch the terminal? A Bitfocus Companion–style menu-bar launcher
+lets you pick the network interface + port, Start/Stop the server, and open the
+web UI — with `srtrouter` bundled inside, so it runs standalone. Grab the `.dmg`
+from [Releases](https://github.com/allansargeant/srt-router/releases), or see
+[launcher/](launcher/) to build it.
+
+<p align="center"><img src="launcher/docs/panel.png" width="320" alt="SRT Router Launcher"></p>
+
 ## Architecture
 
 See [docs/architecture.md](docs/architecture.md) for the source/output/
