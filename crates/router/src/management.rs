@@ -3,9 +3,8 @@
 //! converge on the same `Registry`, so a config-defined source is exactly
 //! as listable/removable here as one added later through this API.
 //!
-//! SRT-first: this only knows how to spawn SRT endpoints today. NDI has a
-//! real, tested transport crate (`ndi-io`) but isn't wired in here yet —
-//! see `docs/roadmap.md`.
+//! Transport support here mirrors `config::Transport`: SRT always, NDI when
+//! built with `--features ndi` (see `available_transports`).
 
 use std::sync::Arc;
 
@@ -44,19 +43,67 @@ impl From<SrtEndpointRequest> for srt_io::Endpoint {
     }
 }
 
+/// Mirrors `ndi_io::Endpoint`, same reasoning as `SrtEndpointRequest`.
+#[cfg(feature = "ndi")]
+#[derive(Deserialize)]
+#[serde(tag = "mode", rename_all = "lowercase")]
+pub enum NdiEndpointRequest {
+    Receiver { source_name: String },
+    Sender { name: String },
+}
+
+#[cfg(feature = "ndi")]
+impl From<NdiEndpointRequest> for ndi_io::Endpoint {
+    fn from(req: NdiEndpointRequest) -> Self {
+        match req {
+            NdiEndpointRequest::Receiver { source_name } => {
+                ndi_io::Endpoint::Receiver { source_name }
+            }
+            NdiEndpointRequest::Sender { name } => ndi_io::Endpoint::Sender { name },
+        }
+    }
+}
+
+/// Untagged: SRT's `mode` is `listener`/`caller`, NDI's is
+/// `receiver`/`sender` — disjoint, so serde picks the right variant from
+/// the request body alone, same trick as `config::Transport`.
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum EndpointRequest {
+    Srt(SrtEndpointRequest),
+    #[cfg(feature = "ndi")]
+    Ndi(NdiEndpointRequest),
+}
+
 #[derive(Deserialize)]
 pub struct AddSourceRequest {
     pub id: String,
     #[serde(flatten)]
-    pub endpoint: SrtEndpointRequest,
+    pub endpoint: EndpointRequest,
 }
 
 #[derive(Deserialize)]
 pub struct AddOutputRequest {
     pub id: String,
     #[serde(flatten)]
-    pub endpoint: SrtEndpointRequest,
+    pub endpoint: EndpointRequest,
     pub default_source: String,
+}
+
+/// Transport kinds this build can actually spawn — `["srt"]` normally,
+/// `["srt", "ndi"]` when built with `--features ndi`. The web UI fetches
+/// this on load to decide which options its transport dropdowns enable,
+/// rather than guessing from a compile-time constant baked into the page.
+fn available_transports() -> Vec<&'static str> {
+    #[allow(unused_mut)]
+    let mut kinds = vec!["srt"];
+    #[cfg(feature = "ndi")]
+    kinds.push("ndi");
+    kinds
+}
+
+async fn list_transports() -> Json<Vec<&'static str>> {
+    Json(available_transports())
 }
 
 #[derive(Serialize)]
@@ -117,17 +164,22 @@ async fn add_source(
     if state.crosspoint.has_source(&req.id) {
         return Err(conflict(format!("source '{}' already exists", req.id)));
     }
-    tracing::info!(id = %req.id, "adding SRT source via management API");
-    let cancel = srt_io::spawn_input(
-        req.id.clone(),
-        req.endpoint.into(),
-        state.crosspoint.clone(),
-    );
-    state.registry.insert_source(req.id.clone(), "srt", cancel);
-    Ok(Json(ManageEntry {
-        id: req.id,
-        kind: "srt",
-    }))
+    let kind = match req.endpoint {
+        EndpointRequest::Srt(ep) => {
+            tracing::info!(id = %req.id, "adding SRT source via management API");
+            let cancel = srt_io::spawn_input(req.id.clone(), ep.into(), state.crosspoint.clone());
+            state.registry.insert_source(req.id.clone(), "srt", cancel);
+            "srt"
+        }
+        #[cfg(feature = "ndi")]
+        EndpointRequest::Ndi(ep) => {
+            tracing::info!(id = %req.id, "adding NDI source via management API");
+            let cancel = ndi_io::spawn_input(req.id.clone(), ep.into(), state.crosspoint.clone());
+            state.registry.insert_source(req.id.clone(), "ndi", cancel);
+            "ndi"
+        }
+    };
+    Ok(Json(ManageEntry { id: req.id, kind }))
 }
 
 async fn remove_source(
@@ -158,18 +210,32 @@ async fn add_output(
     if state.crosspoint.has_output(&req.id) {
         return Err(conflict(format!("output '{}' already exists", req.id)));
     }
-    tracing::info!(id = %req.id, source = %req.default_source, "adding SRT output via management API");
-    let cancel = srt_io::spawn_output(
-        req.id.clone(),
-        req.endpoint.into(),
-        req.default_source,
-        state.crosspoint.clone(),
-    );
-    state.registry.insert_output(req.id.clone(), "srt", cancel);
-    Ok(Json(ManageEntry {
-        id: req.id,
-        kind: "srt",
-    }))
+    let kind = match req.endpoint {
+        EndpointRequest::Srt(ep) => {
+            tracing::info!(id = %req.id, source = %req.default_source, "adding SRT output via management API");
+            let cancel = srt_io::spawn_output(
+                req.id.clone(),
+                ep.into(),
+                req.default_source,
+                state.crosspoint.clone(),
+            );
+            state.registry.insert_output(req.id.clone(), "srt", cancel);
+            "srt"
+        }
+        #[cfg(feature = "ndi")]
+        EndpointRequest::Ndi(ep) => {
+            tracing::info!(id = %req.id, source = %req.default_source, "adding NDI output via management API");
+            let cancel = ndi_io::spawn_output(
+                req.id.clone(),
+                ep.into(),
+                req.default_source,
+                state.crosspoint.clone(),
+            );
+            state.registry.insert_output(req.id.clone(), "ndi", cancel);
+            "ndi"
+        }
+    };
+    Ok(Json(ManageEntry { id: req.id, kind }))
 }
 
 async fn remove_output(
@@ -187,6 +253,7 @@ async fn remove_output(
 
 pub fn router(state: ManageState) -> Router {
     Router::new()
+        .route("/api/manage/transports", get(list_transports))
         .route("/api/manage/sources", get(list_sources).post(add_source))
         .route("/api/manage/sources/:id", delete(remove_source))
         .route("/api/manage/outputs", get(list_outputs).post(add_output))
@@ -330,5 +397,57 @@ mod tests {
         )
         .await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[tokio::test]
+    async fn transports_lists_srt_and_ndi_iff_the_feature_is_on() {
+        let app = router(test_state());
+        let req = Request::builder()
+            .method("GET")
+            .uri("/api/manage/transports")
+            .body(Body::empty())
+            .unwrap();
+        let (status, body) = call(&app, req).await;
+        assert_eq!(status, StatusCode::OK);
+        let kinds: Vec<String> = serde_json::from_value(body).unwrap();
+        assert!(kinds.contains(&"srt".to_string()));
+        assert_eq!(kinds.contains(&"ndi".to_string()), cfg!(feature = "ndi"));
+    }
+
+    #[cfg(feature = "ndi")]
+    #[tokio::test]
+    async fn add_ndi_source_is_dispatched_by_its_disjoint_mode_value() {
+        // No real NDI SDK interaction here (that's ndi-io's own integration
+        // test) — this only checks the untagged EndpointRequest picks the
+        // NDI variant from `mode: "receiver"` and the registry ends up
+        // tagged "ndi", not "srt".
+        let state = test_state();
+        let app = router(state.clone());
+        let (status, body) = call(
+            &app,
+            post(
+                "/api/manage/sources",
+                r#"{"id":"ndi-src","mode":"receiver","source_name":"some-camera"}"#,
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["kind"], "ndi");
+        assert_eq!(state.registry.kind_of("ndi-src"), Some("ndi"));
+
+        // The spawned NDI input's discovery loop runs forever looking for
+        // "some-camera" (which doesn't exist) until cancelled — clean it up
+        // explicitly so this test doesn't rely on ndi-io's ~5s cancellation
+        // polling bound to finish promptly. Not just tidiness: leaving this
+        // running is exactly the bug that made this test hang the whole
+        // binary during development (tokio::test's implicit Runtime::drop
+        // blocks on outstanding spawn_blocking tasks — see the note on
+        // shutdown_background in crates/ndi-io/tests/relay.rs).
+        state
+            .registry
+            .remove_source("ndi-src")
+            .unwrap()
+            .cancel
+            .cancel();
     }
 }

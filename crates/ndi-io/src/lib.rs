@@ -118,14 +118,23 @@ pub fn spawn_output(
     cancel
 }
 
-fn find_source_by_name(finder: &Finder, wanted: &str) -> Result<Source, NdiIoError> {
-    loop {
+/// `Ok(None)` means cancelled before a match ever appeared — distinct from
+/// an `Err`, which means the NDI SDK itself failed. Not returning `Err` for
+/// cancellation keeps the caller's "reconnect on real errors" retry loop
+/// from treating a clean shutdown as a failure worth logging a warning for.
+fn find_source_by_name(
+    finder: &Finder,
+    wanted: &str,
+    cancel: &CancellationToken,
+) -> Result<Option<Source>, NdiIoError> {
+    while !cancel.is_cancelled() {
         let sources = finder.current_sources()?;
         if let Some(found) = sources.iter().find(|s| s.name.contains(wanted)) {
-            return Ok(found.clone());
+            return Ok(Some(found.clone()));
         }
         finder.wait_for_sources(SOURCE_DISCOVERY_POLL)?;
     }
+    Ok(None)
 }
 
 fn run_receiver(
@@ -140,7 +149,9 @@ fn run_receiver(
         &FinderOptions::builder().show_local_sources(true).build(),
     )?;
     info!(source = %id, wanted = %source_name, "searching for NDI source");
-    let source = find_source_by_name(&finder, source_name)?;
+    let Some(source) = find_source_by_name(&finder, source_name, cancel)? else {
+        return Ok(()); // cancelled while still searching
+    };
     info!(source = %id, ndi_source = %source.name, "NDI input connected");
 
     let options = ReceiverOptions::builder(source).build();

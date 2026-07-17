@@ -44,17 +44,25 @@
       [architecture.md](architecture.md#this-isnt-hypothetical--cratesndi-io-proves-it).
       Verified for real: `crates/ndi-io/tests/relay.rs` drives an actual
       NDI sender and receiver against it, consistently passing.
-      **Config-only for now**: `crates/router` gained an optional `ndi`
-      Cargo feature and `config::Transport` (an untagged enum picking
-      `srt_io::Endpoint` vs `ndi_io::Endpoint` by their disjoint `mode`
-      values, so existing SRT-only TOML files need no changes) — build
-      with `cargo run --features ndi` and add `mode = "receiver"` /
-      `"sender"` inputs/outputs to use it. `management.rs`'s runtime
-      add-source/add-destination API is still SRT-only, so the web UI
-      still shows NDI as a disabled dropdown option — that's the next
-      remaining gap, not the config path. Also excluded from default CI
-      (needs the real SDK
-      installed, which CI can't do).
+      `crates/router` has an optional `ndi` Cargo feature: build with
+      `cargo run --features ndi` and (a) add `mode = "receiver"` /
+      `"sender"` inputs/outputs to the TOML config (`config::Transport`,
+      an untagged enum picking `srt_io::Endpoint` vs `ndi_io::Endpoint` by
+      their disjoint `mode` values — existing SRT-only TOML files need no
+      changes), or (b) add/remove them live via `POST`/`DELETE
+      /api/manage/sources|outputs` — the same untagged-by-`mode` trick in
+      `management::EndpointRequest`. `GET /api/manage/transports` reports
+      which kinds this build supports (`["srt"]` or `["srt","ndi"]`); the
+      web UI fetches it on load to decide whether to enable the NDI option
+      in its transport dropdowns, rather than guessing. Verified live: NDI
+      source added through the actual browser UI, confirmed registered
+      with kind `"ndi"` via the API. Excluded from default CI either way
+      (needs the real SDK installed, which CI can't do).
+      Fixed a real bug found while testing this:
+      `ndi-io`'s source-discovery loop didn't check its cancellation token
+      at all, so a removed NDI input whose target never appeared would
+      leak its blocking thread forever — now bounded to the discovery poll
+      interval (~5s worst case).
 - [x] **Cross-kind route validation** — now that SRT and NDI can genuinely
       coexist in one config, `POST /api/route` rejects routing a source to
       an output of a different kind (e.g. an NDI source into an SRT

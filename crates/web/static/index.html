@@ -285,24 +285,65 @@ document.querySelectorAll('[data-toggle]').forEach((el) => {
   });
 });
 
-document.querySelectorAll('.add-form select[name="mode"]').forEach((select) => {
-  const form = select.closest('form');
-  const hint = form.querySelector('[data-hint]');
+const SRT_MODE_OPTIONS = '<option value="listener">listener — wait for a connection</option><option value="caller">caller — dial out</option>';
+
+function updateFormForTransport(form) {
+  const transport = form.querySelector('select[name="transport"]').value;
+  const modeSelect = form.querySelector('select[name="mode"]');
   const addressInput = form.querySelector('input[name="address"]');
-  const update = () => {
-    if (select.value === 'listener') {
-      hint.textContent = form.id === 'add-source-form'
-        ? 'Router waits on this address for the encoder to connect.'
-        : 'Router waits on this address for the decoder to connect.';
-      addressInput.placeholder = form.id === 'add-source-form' ? '0.0.0.0:5003' : '0.0.0.0:6003';
+  const hint = form.querySelector('[data-hint]');
+  const isSource = form.id === 'add-source-form';
+
+  if (transport === 'ndi') {
+    modeSelect.innerHTML = isSource
+      ? '<option value="receiver">receiver — discover a named NDI source</option>'
+      : '<option value="sender">sender — advertise a named NDI output</option>';
+    if (isSource) {
+      hint.textContent = 'Connects to the first NDI source whose name contains this text.';
+      addressInput.placeholder = 'CAMERA-1';
     } else {
-      hint.textContent = 'Router dials out to this address.';
-      addressInput.placeholder = '203.0.113.10:5000';
+      hint.textContent = 'Name this router advertises as an NDI output on the network.';
+      addressInput.placeholder = 'Program Output';
     }
-  };
-  select.addEventListener('change', update);
-  update();
+    return;
+  }
+
+  // srt
+  if (modeSelect.innerHTML !== SRT_MODE_OPTIONS) {
+    modeSelect.innerHTML = SRT_MODE_OPTIONS;
+  }
+  if (modeSelect.value === 'listener') {
+    hint.textContent = isSource
+      ? 'Router waits on this address for the encoder to connect.'
+      : 'Router waits on this address for the decoder to connect.';
+    addressInput.placeholder = isSource ? '0.0.0.0:5003' : '0.0.0.0:6003';
+  } else {
+    hint.textContent = 'Router dials out to this address.';
+    addressInput.placeholder = '203.0.113.10:5000';
+  }
+}
+
+document.querySelectorAll('.add-form').forEach((form) => {
+  form.querySelector('select[name="transport"]').addEventListener('change', () => updateFormForTransport(form));
+  form.querySelector('select[name="mode"]').addEventListener('change', () => updateFormForTransport(form));
+  updateFormForTransport(form);
 });
+
+async function loadAvailableTransports() {
+  try {
+    const res = await fetch('/api/manage/transports');
+    const kinds = await res.json();
+    if (kinds.includes('ndi')) {
+      document.querySelectorAll('select[name="transport"] option[value="ndi"]').forEach((opt) => {
+        opt.disabled = false;
+        opt.textContent = 'NDI';
+      });
+    }
+  } catch (e) {
+    // Leave NDI disabled (default state) if the endpoint isn't reachable —
+    // fails safe to "can't tell, so don't offer it".
+  }
+}
 
 async function submitAddForm(form, path, buildBody) {
   const data = new FormData(form);
@@ -319,41 +360,46 @@ async function submitAddForm(form, path, buildBody) {
   }
   form.reset();
   form.classList.add('hidden');
+  updateFormForTransport(form);
   setStatus('');
   await fetchKinds();
   render(lastState);
 }
 
+function endpointFields(data) {
+  const transport = data.get('transport');
+  const mode = data.get('mode');
+  const address = data.get('address');
+  if (transport === 'ndi') {
+    return mode === 'receiver' ? { mode, source_name: address } : { mode, name: address };
+  }
+  return mode === 'listener' ? { mode, bind: address } : { mode, connect: address };
+}
+
 document.getElementById('add-source-form').addEventListener('submit', (ev) => {
   ev.preventDefault();
-  submitAddForm(ev.target, '/api/manage/sources', (data) => {
-    const mode = data.get('mode');
-    return {
-      id: data.get('entry_id'),
-      mode,
-      ...(mode === 'listener' ? { bind: data.get('address') } : { connect: data.get('address') }),
-    };
-  });
+  submitAddForm(ev.target, '/api/manage/sources', (data) => ({
+    id: data.get('entry_id'),
+    ...endpointFields(data),
+  }));
 });
 
 document.getElementById('add-output-form').addEventListener('submit', (ev) => {
   ev.preventDefault();
-  submitAddForm(ev.target, '/api/manage/outputs', (data) => {
-    const mode = data.get('mode');
-    return {
-      id: data.get('entry_id'),
-      mode,
-      default_source: data.get('default_source'),
-      ...(mode === 'listener' ? { bind: data.get('address') } : { connect: data.get('address') }),
-    };
-  });
+  submitAddForm(ev.target, '/api/manage/outputs', (data) => ({
+    id: data.get('entry_id'),
+    default_source: data.get('default_source'),
+    ...endpointFields(data),
+  }));
 });
 
 // First paint over plain REST (fast, works even if the websocket upgrade is
 // ever blocked by something in between), then switch to live push. Kinds
-// come from a separate, infrequently-changing endpoint so they don't need
-// to ride the same fast poll/push loop as routing state.
+// and available transports come from separate, infrequently-changing
+// endpoints so they don't need to ride the same fast poll/push loop as
+// routing state.
 fetchKinds();
+loadAvailableTransports();
 tick().finally(connectLive);
 </script>
 </body>

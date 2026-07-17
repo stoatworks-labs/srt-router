@@ -48,9 +48,10 @@ trusted operations network, the same trust model as a hardware router's
 control port.
 
 **Transports beyond SRT:** `crates/ndi-io` is a real, tested NDI transport
-(see [Status](#status)), usable from the TOML config behind an opt-in `ndi`
-Cargo feature — but not yet from the runtime add-source/add-destination API,
-so the web UI still shows NDI as a disabled dropdown option for now.
+(see [Status](#status)), usable behind an opt-in `ndi` Cargo feature
+(`cargo run --features ndi`) both from the TOML config and from the runtime
+add-source/add-destination API — the web UI enables NDI in its transport
+dropdown automatically when the build supports it.
 `crates/omt-io` is a placeholder for the equivalent OMT transport (open,
 MIT-licensed) — not yet implemented, see [docs/roadmap.md](docs/roadmap.md).
 
