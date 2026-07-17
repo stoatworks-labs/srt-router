@@ -76,13 +76,26 @@
       the route left untouched, and the no-guard case behaves exactly as
       before), and live against a real mixed SRT+NDI config
       (`cargo run --features ndi`) via `curl`.
-- [ ] **OMT** — `crates/omt-io` exists only as a placeholder. OMT itself is
-      a genuinely open, MIT-licensed protocol (unlike NDI), but the only
-      existing Rust wrapper is Windows-only and pre-release (no
-      send/receive implementation, only source discovery). Real support
-      means hand-writing FFI bindings against libomt's own C header and
-      the prebuilt macOS/Windows binary (no Linux build exists) —
-      deferred, not started.
+- [x] **OMT** — `crates/omt-io`, hand-written FFI (`src/sys.rs`) against
+      the real `libomt` C SDK (MIT-licensed, no bindgen — the API is small
+      and stable enough that transcribing `libomt.h` directly was less
+      risk than adding a bindgen step). Same `spawn_input`/`spawn_output`
+      shape and `Bytes`-envelope pattern as `ndi-io`
+      (`src/envelope.rs`). Requires `OMT_LIB_DIR` pointed at a
+      `libomtnet` release's `Libraries/<platform>` folder (no standard
+      install location exists for OMT the way NDI has one) — real
+      workspace member, excluded from `default-members`/CI same as
+      `ndi-io`. Verified for real: `crates/omt-io/tests/relay.rs` drives
+      an actual OMT sender and receiver (raw `sys::` calls, not this
+      crate's own code — an independent check on the envelope's fidelity)
+      against `spawn_input`/`spawn_output`, consistently passing (~2.1s,
+      3/3 runs). Every lesson from `ndi-io`'s test — continuous-framerate
+      sender thread, `rt.shutdown_background()` — was applied from the
+      start here rather than re-discovered. Not yet wired into
+      `crates/router`'s config/management API/web UI (the `ndi` feature's
+      pattern in `config::Transport`/`management::EndpointRequest` should
+      generalize directly — same disjoint-`mode`-value trick, OMT's is
+      `receiver`/`sender` same as NDI's).
 
 ## Phase 2 — special-purpose sources
 

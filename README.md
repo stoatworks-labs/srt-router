@@ -51,7 +51,11 @@ control port.
 (see [Status](#status)), usable behind an opt-in `ndi` Cargo feature
 (`cargo run --features ndi`) both from the TOML config and from the runtime
 add-source/add-destination API — the web UI enables NDI in its transport
-dropdown automatically when the build supports it.
+dropdown automatically when the build supports it. `crates/omt-io` is the
+same for [OMT](https://openmediatransport.org/) — a genuinely open,
+MIT-licensed alternative to NDI — via hand-written FFI against the real SDK
+(requires `OMT_LIB_DIR`, no bindgen); not yet wired into the router
+binary's config/API/UI the way NDI is, that's the next step.
 `crates/omt-io` is a placeholder for the equivalent OMT transport (open,
 MIT-licensed) — not yet implemented, see [docs/roadmap.md](docs/roadmap.md).
 
