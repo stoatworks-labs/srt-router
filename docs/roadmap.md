@@ -92,10 +92,23 @@
       3/3 runs). Every lesson from `ndi-io`'s test — continuous-framerate
       sender thread, `rt.shutdown_background()` — was applied from the
       start here rather than re-discovered. Not yet wired into
-      `crates/router`'s config/management API/web UI (the `ndi` feature's
-      pattern in `config::Transport`/`management::EndpointRequest` should
-      generalize directly — same disjoint-`mode`-value trick, OMT's is
-      `receiver`/`sender` same as NDI's).
+      `crates/router`'s config/management API/web UI yet.
+      **Important constraint found while scoping that**: `config::Transport`
+      and `management::EndpointRequest` disambiguate SRT from NDI via
+      serde's `untagged` enum trying each variant until one's required
+      fields match — this works today because SRT's `mode` values
+      (`listener`/`caller`) are disjoint from NDI's (`receiver`/`sender`).
+      OMT's `Endpoint` also uses `receiver`/`sender`, **and** its `Sender`
+      variant is shape-identical to NDI's (`{mode: "sender", name: "..."}`)
+      — untagged resolution can't tell them apart by content, it would
+      silently always pick whichever variant is listed first in the enum,
+      misrouting one transport's config as the other whenever both `ndi`
+      and `omt` features are ever enabled together. Wiring OMT into the
+      router needs this resolved first (most likely: switch to an explicit
+      `transport = "srt" | "ndi" | "omt"` tag now that there's a real
+      three-way ambiguity, rather than extending the implicit-from-`mode`
+      trick further) — not done in this pass specifically to avoid
+      shipping that footgun under time pressure.
 
 ## Phase 2 — special-purpose sources
 
