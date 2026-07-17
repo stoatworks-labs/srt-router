@@ -49,15 +49,15 @@ control port.
 
 **Transports beyond SRT:** `crates/ndi-io` is a real, tested NDI transport
 (see [Status](#status)), usable behind an opt-in `ndi` Cargo feature
-(`cargo run --features ndi`) both from the TOML config and from the runtime
-add-source/add-destination API — the web UI enables NDI in its transport
-dropdown automatically when the build supports it. `crates/omt-io` is the
-same for [OMT](https://openmediatransport.org/) — a genuinely open,
-MIT-licensed alternative to NDI — via hand-written FFI against the real SDK
-(requires `OMT_LIB_DIR`, no bindgen); not yet wired into the router
-binary's config/API/UI the way NDI is, that's the next step.
-`crates/omt-io` is a placeholder for the equivalent OMT transport (open,
-MIT-licensed) — not yet implemented, see [docs/roadmap.md](docs/roadmap.md).
+(`cargo run --features ndi`) from both the TOML config and the runtime
+add-source/add-destination REST API. The web UI still lists NDI as a
+disabled, config-only option — enabling it live from the UI is the remaining
+step. `crates/omt-io` is the same idea for
+[OMT](https://openmediatransport.org/) — a genuinely open, MIT-licensed
+alternative to NDI — implemented and tested via hand-written FFI against the
+real SDK (requires `OMT_LIB_DIR`, no bindgen). It is not yet wired into the
+router binary's config/API/UI the way NDI is; that's the next step (see
+[docs/roadmap.md](docs/roadmap.md)).
 
 ## Status
 
@@ -86,10 +86,14 @@ Working:
 - `crates/ndi-io`: a real NDI transport using
   [grafton-ndi](https://github.com/GrantSparks/grafton-ndi) (Apache-2.0)
   against the actual NDI SDK, with its own integration test driving a real
-  NDI sender and receiver against it, consistently passing. Now usable from
-  `srtrouter`'s TOML config behind an opt-in `ndi` Cargo feature (`cargo run
-  --features ndi`) — not yet in the runtime add/remove API or web UI menus,
-  see [What it does](#what-it-does).
+  NDI sender and receiver against it, consistently passing. Usable from
+  `srtrouter`'s TOML config **and** the runtime add/remove REST API behind an
+  opt-in `ndi` Cargo feature (`cargo run --features ndi`); the web UI still
+  lists NDI as a disabled, config-only option, see [What it does](#what-it-does).
+- `crates/omt-io`: a real, tested [OMT](https://openmediatransport.org/)
+  transport via hand-written FFI against the OMT SDK (`OMT_LIB_DIR`, no
+  bindgen), with its own relay integration test — implemented as a transport
+  crate but not yet wired into the router's config/API/UI (that's next).
 - CI (GitHub Actions) runs `fmt --check`, `clippy -D warnings`, and the full
   test suite on every push/PR — SRT-only (`ndi-io`/`omt-io` need real
   SDKs CI can't install, so they're real workspace members but excluded
@@ -108,12 +112,13 @@ Working:
 
 **Not yet done:** no test against a real third-party SRT/NDI encoder or
 decoder, or over a real (non-loopback) network path — only local testing so
-far, still the main open gap. Also missing: NDI wired into the router's
-config/web UI, OMT (placeholder crate only), special-purpose sources
-(stills/media player/scaler — the add-source menu shows them as disabled
-options), auth on the web UI/API, external control API/Companion
-integration. See [docs/roadmap.md](docs/roadmap.md) for the full phased
-plan.
+far, still the main open gap. Also missing: NDI enabled live from the web UI
+(it works today from the TOML config and the REST API), OMT wired into the
+router (the transport crate is implemented and tested, just not yet in the
+router's config/API/UI), special-purpose sources (stills/media player/scaler
+— the add-source menu shows them as disabled options), auth on the web
+UI/API, external control API/Companion integration. See
+[docs/roadmap.md](docs/roadmap.md) for the full phased plan.
 
 ## Quick start
 
@@ -148,8 +153,8 @@ to extend later without changing the core engine.
 Full phased plan in [docs/roadmap.md](docs/roadmap.md). Main open items:
 
 - [ ] **Real-world testing** — against a third-party SRT/NDI encoder/decoder and over a real (non-loopback) network path; the main open gap.
-- [ ] **NDI in the runtime API/UI** — wire the (already-tested) NDI transport into the add/remove API and web UI menus, not just the TOML config behind the `ndi` feature.
-- [ ] **OMT transport** — implement `crates/omt-io` (currently a placeholder).
+- [ ] **NDI live in the web UI** — already usable from the TOML config and the runtime REST API (behind the `ndi` feature); the web UI still lists it as a disabled, config-only option.
+- [ ] **OMT wired into the router** — `crates/omt-io` is implemented and tested; wire it into the router's config/API/UI the way NDI is.
 - [ ] **Special-purpose sources** — stills, local media player, scaler tap (shown as disabled options in the add-source menu today).
 - [ ] **Auth/TLS** on the web UI/API.
 - [ ] **External control API / Bitfocus Companion** integration.
