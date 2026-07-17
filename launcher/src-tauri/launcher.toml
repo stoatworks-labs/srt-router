@@ -19,3 +19,16 @@ mode = "configfile"
 template = "bin/server-config.toml"
 set_key = "web.bind"
 value = "{host}:{port}"
+
+# Palette mirrored from srt-router's web UI (dark slate + periwinkle accent).
+[app.theme]
+bg = "#14161a"
+panel = "#1a1d24"
+"panel-2" = "#22262e"
+border = "#2a2d33"
+text = "#e6e6e6"
+muted = "#b7bfca"
+dim = "#6b7280"
+accent = "#9fb4ff"
+"accent-soft" = "#1c2333"
+good = "#37835c"

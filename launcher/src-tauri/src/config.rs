@@ -40,6 +40,12 @@ pub struct AppSpec {
     /// resolve). Optional; defaults to the binary's directory.
     #[serde(default)]
     pub cwd: Option<String>,
+    /// Optional palette (CSS custom-property name -> value) applied to the
+    /// panel so each launcher matches its app's own web UI. Keys like
+    /// `bg`, `panel`, `border`, `text`, `muted`, `accent`, `accent-soft`,
+    /// `good`. Anything omitted falls back to the shell's built-in defaults.
+    #[serde(default)]
+    pub theme: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

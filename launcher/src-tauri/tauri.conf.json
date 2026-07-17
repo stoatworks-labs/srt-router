@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "SRT Router Launcher",
+  "productName": "SRT Router",
   "version": "0.1.0",
-  "identifier": "com.allansargeant.srt-router-launcher",
+  "identifier": "com.allansargeant.srt-router",
   "build": {
     "frontendDist": "../src"
   },
@@ -11,7 +11,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "SRT Router Launcher",
+        "title": "SRT Router",
         "width": 460,
         "height": 500,
         "resizable": false,
