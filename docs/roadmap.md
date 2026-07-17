@@ -55,6 +55,19 @@
       remaining gap, not the config path. Also excluded from default CI
       (needs the real SDK
       installed, which CI can't do).
+- [x] **Cross-kind route validation** — now that SRT and NDI can genuinely
+      coexist in one config, `POST /api/route` rejects routing a source to
+      an output of a different kind (e.g. an NDI source into an SRT
+      output) with a clear error, instead of silently accepting a route
+      that would relay one transport's envelope into a socket expecting
+      another's. `crosspoint-web::app_with_kind_lookup` takes a
+      `KindLookup` closure (`crates/router` wires it to
+      `Registry::kind_of`) — `crosspoint-core` itself still knows nothing
+      about kinds, per its design. Verified two ways: unit tests in
+      `crates/web/src/lib.rs` (same-kind allowed, cross-kind rejected with
+      the route left untouched, and the no-guard case behaves exactly as
+      before), and live against a real mixed SRT+NDI config
+      (`cargo run --features ndi`) via `curl`.
 - [ ] **OMT** — `crates/omt-io` exists only as a placeholder. OMT itself is
       a genuinely open, MIT-licensed protocol (unlike NDI), but the only
       existing Rust wrapper is Windows-only and pre-release (no

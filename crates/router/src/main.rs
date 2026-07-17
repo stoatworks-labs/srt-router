@@ -107,9 +107,14 @@ async fn main() -> Result<()> {
 
     let manage_state = ManageState {
         crosspoint: crosspoint.clone(),
-        registry,
+        registry: registry.clone(),
     };
-    let app = crosspoint_web::app(crosspoint).merge(management::router(manage_state));
+    let kind_of: crosspoint_web::KindLookup = {
+        let registry = registry.clone();
+        std::sync::Arc::new(move |id: &str| registry.kind_of(id))
+    };
+    let app = crosspoint_web::app_with_kind_lookup(crosspoint, kind_of)
+        .merge(management::router(manage_state));
     let listener = tokio::net::TcpListener::bind(bind).await?;
     tracing::info!(%bind, "crosspoint web UI listening");
     axum::serve(listener, app).await?;

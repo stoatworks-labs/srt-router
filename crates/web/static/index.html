@@ -177,7 +177,7 @@ async function setRoute(output, source) {
   });
   const body = await res.json();
   if (!body.ok) {
-    setStatus('Route rejected: ' + output + ' <- ' + source);
+    setStatus('Route rejected: ' + output + ' <- ' + source + (body.error ? ' (' + body.error + ')' : ''));
   }
 }
 

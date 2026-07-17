@@ -60,4 +60,16 @@ impl Registry {
             .map(|(id, e)| (id.clone(), e.kind))
             .collect()
     }
+
+    /// The transport kind of `id`, checking sources then outputs. Used to
+    /// reject cross-kind routes (see `crosspoint_web::app_with_kind_lookup`)
+    /// — a single lookup covering both is enough there since source ids and
+    /// output ids are just whatever the caller named them, not namespaced.
+    pub fn kind_of(&self, id: &str) -> Option<&'static str> {
+        self.sources
+            .read()
+            .get(id)
+            .map(|e| e.kind)
+            .or_else(|| self.outputs.read().get(id).map(|e| e.kind))
+    }
 }
