@@ -21,8 +21,8 @@ Three concepts, deliberately kept separate:
 ```
  SRT input (listener/caller) ──▶ broadcast::Sender<Bytes> ──┐
  SRT input (listener/caller) ──▶ broadcast::Sender<Bytes> ──┤   crosspoint
- [future] stills source      ──▶ broadcast::Sender<Bytes> ──┤   routing table
- [future] media player       ──▶ broadcast::Sender<Bytes> ──┘  (output id -> source id)
+ stills source (ffmpeg)      ──▶ broadcast::Sender<Bytes> ──┤   routing table
+ media player (ffmpeg)       ──▶ broadcast::Sender<Bytes> ──┘  (output id -> source id)
                                                                     │
                                         watch::Receiver<SourceId> ◀─┘
                                                  │
@@ -49,23 +49,22 @@ SRT-specific or video-specific. That's what lets:
    decode/re-encode, no dependency on knowing the payload is MPEG-TS (SRT
    itself is payload-agnostic — it just moves packets — so this router never
    needs to understand the video codec/container to relay it).
-2. **Future non-relay sources** — a stills source, a local media player, or
-   a scaler tap on another source all have the *same* registration API
-   (`Crosspoint::register_source`), they just publish chunks they generated
-   instead of chunks they received from a socket. From the crosspoint's (and
-   every output's) point of view, there is no difference between "relayed
-   SRT source" and "locally generated source" — both are just something
-   calling `.send(bytes)` on a broadcast channel. Building one of these is a
-   new module in a new crate (or in `crates/srt-io` if it still needs SRT
-   framing), not a change to `crates/core`.
+2. **Non-relay sources** (`crates/media-io`) — a stills source, a local
+   media player, and a scaler tap on another source all have the *same*
+   registration API (`Crosspoint::register_source`), they just publish
+   chunks they generated (by running `ffmpeg` as a child process) instead of
+   chunks they received from a socket. From the crosspoint's (and every
+   output's) point of view, there is no difference between "relayed SRT
+   source" and "locally generated source" — both are just something calling
+   `.send(bytes)` on a broadcast channel.
 
-The tradeoff this buys: Phase 1 switching between two *relayed* sources is
-not pixel-seamless — the output's downstream decoder will see a
-mid-GOP cut and re-lock at the next keyframe, same as any real SRT/IP
-router (Zixi, Haivision, Dektec-class boxes) that switches at the transport
-level rather than the pixel level. A source that decodes/re-encodes (the
-future scaler/media-player case) *can* be made seamless at its own output,
-at the cost of actually running a media pipeline for that one path — see
+The tradeoff this buys: switching between two *relayed* sources is not
+pixel-seamless — the output's downstream decoder will see a mid-GOP cut and
+re-lock at the next keyframe, same as any real SRT/IP router (Zixi,
+Haivision, Dektec-class boxes) that switches at the transport level rather
+than the pixel level. A source that decodes/re-encodes (media-io's scaler,
+in particular) *can* be made seamless at its own output, at the cost of
+actually running a media pipeline for that one path — see
 [roadmap.md](roadmap.md).
 
 ## This isn't hypothetical — `crates/ndi-io` proves it
@@ -94,6 +93,44 @@ binary/config/UI (see [roadmap.md](roadmap.md)) and independently tested —
 `crates/ndi-io/tests/relay.rs` and `crates/omt-io/tests/relay.rs` each drive
 an actual sender/receiver of their respective protocol against it, proving
 the envelope pattern holds for both.
+
+## media-io: the non-envelope case
+
+Stills, media player, and scaler (`crates/media-io`) are the "future
+non-relay sources" from the note above, made concrete — but unlike NDI/OMT,
+they deliberately *don't* need an envelope. Each spawns `ffmpeg` as a child
+process (`-f mpegts pipe:1`) and republishes its stdout, chunked into
+188-byte-multiple slices (the conventional SRT/MPEG-TS payload alignment),
+straight onto the crosspoint's broadcast channel — no frame decode/re-encode
+of the *transport* layer, just plain MPEG-TS bytes, identical in shape to
+what an SRT relay's socket hands over. ffmpeg itself is what's doing real
+work (encoding a looped image, playing a file, or — for the scaler —
+decoding/rescaling/re-encoding another source's own `Bytes`, fed into its
+`pipe:0`), but the crosspoint-facing wire format needs no self-describing
+envelope the way NDI/OMT's distinct video/audio/metadata frames do.
+
+That has one concrete, easy-to-get-wrong consequence for cross-kind route
+validation: a `media` source is payload-compatible with an `srt` output
+(and vice versa) despite the different kind *strings*, because both carry
+the same raw MPEG-TS — routing a stills slate straight into a live SRT
+output needs no transcoding, which is the actual point of building it as a
+raw pipe rather than an NDI/OMT-style envelope. `crosspoint-web`'s route
+guard (`payload_compatible` in `crates/web/src/lib.rs`) encodes this
+explicitly: it groups `srt`/`media` into one payload class and leaves
+`ndi`/`omt` isolated from everything else (each other included), rather
+than requiring exact kind-string equality the way the NDI/OMT case does.
+
+Why ffmpeg as a subprocess rather than a Rust-native encode/decode crate:
+mature, well-tested codec support with no proprietary SDK or FFI to
+maintain (unlike NDI/OMT, `ffmpeg` needs no build-time linking at all — it's
+a runtime dependency, checked by actually trying to spawn it, so
+`media-io` carries no Cargo feature gate and is a normal `default-members`
+crate). And specifically *not* asking ffmpeg to speak SRT itself
+(`-f mpegts pipe:1`/`pipe:0` instead of an `srt://` URL): plenty of ffmpeg
+builds — this project's own dev machine's Homebrew build included — are
+compiled without libsrt support, so piping raw bytes works with any
+baseline install and skips a network hop entirely, since the bytes are
+already local to this process.
 
 ## Crate layout
 
@@ -148,12 +185,24 @@ the envelope pattern holds for both.
   feature is on, which is what lets a built `srtrouter` binary find
   `libomt` at process startup without `DYLD_LIBRARY_PATH`/`LD_LIBRARY_PATH`
   set.
+- `crates/media-io` (`media-io`) — stills/media-player/scaler, see the
+  dedicated section above. `spawn_input` runs `ffmpeg`, republishing its
+  `pipe:1` MPEG-TS in packet-aligned chunks; the scaler additionally
+  subscribes to another registered source and feeds its `Bytes` into
+  ffmpeg's `pipe:0`. No SDK, no Cargo feature — a normal `default-members`
+  crate, always wired into `crates/router`'s config/REST API/web UI (see
+  `config::InputTransport::Media`, `management::SourceEndpointRequest`).
+  Source-only: `config::OutputTransport` and `management::EndpointRequest`
+  (used for outputs) have no `Media` variant, since none of stills/media-
+  player/scaler make sense as something the router sends routed video *to*.
 
 ## Config format
 
-Every input/output names an explicit `transport = "srt" | "ndi" | "omt"`
-(NDI/OMT entries only take effect when the router is built with the
-matching Cargo feature), plus that transport's own `mode`:
+Every input/output names an explicit
+`transport = "srt" | "ndi" | "omt" | "media"` (NDI/OMT entries only take
+effect when the router is built with the matching Cargo feature; `media`
+needs no feature, just `ffmpeg` on `PATH`), plus that transport's own
+`mode`:
 
 ```toml
 [[inputs]]
@@ -179,20 +228,29 @@ id = "omt-cam"
 transport = "omt"
 mode = "receiver"       # discover a source whose discovery address contains this text
 address = "SOME-MACHINE (Camera 1)"
+
+[[inputs]]
+id = "slate"
+transport = "media"
+mode = "stills"          # loop a static image; other modes are "mediaplayer"
+image_path = "/opt/srtrouter/slate.png"   # (file_path, loop_playback) and
+                                           # "scaler" (source: an existing source id)
 ```
 
 Outputs are the same shape plus `default_source` (what they're routed from
 at startup if nothing better is known — see below); NDI/OMT outputs use
-`mode = "sender"` with a `name` field instead of `bind`/`connect`.
+`mode = "sender"` with a `name` field instead of `bind`/`connect`. `media`
+has no output form at all — see `config::OutputTransport` in the crate
+layout above.
 
-The `transport` tag is load-bearing, not decorative: `Transport` in
+The `transport` tag is load-bearing, not decorative: `InputTransport` in
 `crates/router/src/config.rs` is a `#[serde(tag = "transport")]` enum rather
 than an untagged one specifically because NDI's and OMT's `Sender { name }`
 shapes are byte-for-byte identical (`{"mode": "sender", "name": "..."}`) —
 untagged resolution can't tell those two apart by content alone, it would
 silently always pick whichever variant is declared first in the enum. The
-same tagging applies to the runtime REST API's `EndpointRequest` in
-`crates/router/src/management.rs`.
+same tagging applies to the runtime REST API's `SourceEndpointRequest`/
+`EndpointRequest` in `crates/router/src/management.rs`.
 
 Optionally, a top-level `[state]` section with a `path` enables persisting
 routing changes to disk: every time a route changes, the full output ->
@@ -215,7 +273,7 @@ DELETE /api/manage/sources/:id
 GET    /api/manage/outputs              -> [{ "id": "program", "kind": "srt" }, ...]
 POST   /api/manage/outputs               { "id": "aux", "transport": "srt", "mode": "caller", "connect": "203.0.113.10:6000", "default_source": "cam1" }
 DELETE /api/manage/outputs/:id
-GET    /api/manage/transports           -> ["srt", "ndi", "omt"]   (whichever Cargo features are on)
+GET    /api/manage/transports           -> ["srt", "media", "ndi", "omt"]   (whichever Cargo features are on; media is always present)
 ```
 
 `POST` is rejected with `409 Conflict` if the id already exists (checked
@@ -226,11 +284,16 @@ successful `DELETE` calls the entry's `CancellationToken` (which stops its
 the bound socket, confirmed with `lsof` during testing, not assumed) and
 then `Crosspoint::deregister_source`/`deregister_output`.
 
-`POST` bodies are dispatched by their `transport` tag
-(`EndpointRequest` in `management.rs`, `#[serde(tag = "transport")]`) to
-`srt_io::`, `ndi_io::`, or `omt_io::spawn_input`/`spawn_output` — whichever
-of `ndi`/`omt` are compiled in via Cargo feature. `GET
-/api/manage/transports` reports which ones the running binary actually
-supports; the web UI calls it on load and only un-disables the matching
-`<option>`s in the transport dropdown (Scaler/Media player stay disabled —
-Phase 2, not built yet).
+`POST /api/manage/sources` bodies are dispatched by their `transport` tag
+(`SourceEndpointRequest` in `management.rs`, `#[serde(tag = "transport")]`)
+to `srt_io::`, `ndi_io::`, `omt_io::`, or `media_io::spawn_input` —
+whichever of `ndi`/`omt` are compiled in via Cargo feature (`media` is
+always available). `POST /api/manage/outputs` uses the narrower
+`EndpointRequest` (no `Media` variant — see `config::OutputTransport`), so
+a `"transport":"media"` output body fails to deserialize (`422`) rather
+than silently doing nothing. `GET /api/manage/transports` reports which
+kinds the running binary actually supports; the web UI calls it on load and
+only un-disables the matching `<option>`s in its transport dropdowns
+(`media` needs no un-disabling — it's always on, and only ever offered in
+the *source* dropdown, never the destination one, since the HTML itself has
+no `media` `<option>` there).

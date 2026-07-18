@@ -922,6 +922,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e7465ac9959cc2b1404e8e2367b43684a6d13790fe23056cc8c6c5a6b7bcb94"
 
 [[package]]
+name = "media-io"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "crosspoint-core",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1498,6 +1513,7 @@ dependencies = [
  "clap",
  "crosspoint-core",
  "crosspoint-web",
+ "media-io",
  "ndi-io",
  "omt-io",
  "parking_lot",

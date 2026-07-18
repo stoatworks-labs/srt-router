@@ -7,17 +7,23 @@ members = [
     "crates/router",
     "crates/ndi-io",
     "crates/omt-io",
+    "crates/media-io",
 ]
 # Plain `cargo build`/`cargo test` (no -p) only touches these — the SRT-only
 # core, unaffected by whether the NDI SDK or libomt are installed. ndi-io and
 # omt-io are still real workspace members (buildable/testable via `-p`, and
 # pulled in by crates/router's opt-in `ndi`/`omt` Cargo features) but require
 # real, non-crates.io SDKs to build; see README's Transports section.
+# media-io is different: it only shells out to `ffmpeg` at runtime, no
+# build-time SDK/linking, so it stays a normal default member like core/
+# srt-io — CI builds and tests it same as everything else (ffmpeg is
+# explicitly `apt-get install`ed in .github/workflows/ci.yml).
 default-members = [
     "crates/core",
     "crates/srt-io",
     "crates/web",
     "crates/router",
+    "crates/media-io",
 ]
 
 [workspace.package]

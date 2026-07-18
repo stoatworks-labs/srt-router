@@ -18,6 +18,12 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+      - name: install ffmpeg
+        # media-io (stills/media-player/scaler) shells out to ffmpeg at
+        # runtime and its integration tests run it for real — explicit
+        # install rather than relying on ubuntu-latest happening to bundle
+        # it, so CI doesn't silently start failing if that ever changes.
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: fmt
         run: cargo fmt --all -- --check
       - name: clippy
@@ -26,5 +32,7 @@ jobs:
         # No --all/--workspace: that overrides [workspace] default-members
         # and would try to build ndi-io/omt-io too, which need real SDKs
         # (NDI SDK, libomt) that aren't installed on this runner. Plain
-        # `cargo test` respects default-members and stays SRT-only.
+        # `cargo test` respects default-members and stays SRT-only (plus
+        # media-io, a default member since it only needs ffmpeg at
+        # runtime, no SDK to build against).
         run: cargo test

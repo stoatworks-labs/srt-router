@@ -2,9 +2,9 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
-/// Which transport an input/output uses. Explicitly tagged by
-/// `transport = "srt" | "ndi" | "omt"` — every `[[inputs]]`/`[[outputs]]`
-/// entry must set it.
+/// Which transport an *input* uses. Explicitly tagged by
+/// `transport = "srt" | "ndi" | "omt" | "media"` — every `[[inputs]]` entry
+/// must set it.
 ///
 /// This used to be an untagged enum that picked SRT vs NDI implicitly from
 /// their disjoint `mode` values (`listener`/`caller` vs `receiver`/
@@ -17,7 +17,22 @@ use serde::Deserialize;
 /// how many transports share `mode` values with each other.
 #[derive(Deserialize)]
 #[serde(tag = "transport", rename_all = "lowercase")]
-pub enum Transport {
+pub enum InputTransport {
+    Srt(srt_io::Endpoint),
+    #[cfg(feature = "ndi")]
+    Ndi(ndi_io::Endpoint),
+    #[cfg(feature = "omt")]
+    Omt(omt_io::Endpoint),
+    Media(media_io::Endpoint),
+}
+
+/// Which transport an *output* uses — a strict subset of [`InputTransport`]:
+/// stills/local media/a scaler tap only ever make sense as something the
+/// crosspoint reads *from*, never as a destination a router sends routed
+/// video *to*, so there's no `Media` variant here the way there is above.
+#[derive(Deserialize)]
+#[serde(tag = "transport", rename_all = "lowercase")]
+pub enum OutputTransport {
     Srt(srt_io::Endpoint),
     #[cfg(feature = "ndi")]
     Ndi(ndi_io::Endpoint),
@@ -53,14 +68,14 @@ pub struct WebConfig {
 pub struct InputConfig {
     pub id: String,
     #[serde(flatten)]
-    pub endpoint: Transport,
+    pub endpoint: InputTransport,
 }
 
 #[derive(Deserialize)]
 pub struct OutputConfig {
     pub id: String,
     #[serde(flatten)]
-    pub endpoint: Transport,
+    pub endpoint: OutputTransport,
     /// Source this output is routed from at startup.
     pub default_source: String,
 }

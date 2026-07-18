@@ -72,13 +72,32 @@ async fn get_state(State(state): State<AppState>) -> Json<StateResponse> {
     Json(snapshot(&state.crosspoint))
 }
 
+/// Are two transport kinds' payloads routable without transcoding? Almost
+/// always just kind equality, with one deliberate exception: a `media`
+/// source (stills/media-player/scaler, see `media-io`) publishes plain
+/// MPEG-TS `Bytes` — byte-for-byte the same wire format an `srt` relay
+/// carries, not an envelope like NDI/OMT's. Grouping them lets a stills
+/// slate feed a live SRT output directly (the actual point of building
+/// stills as a raw-MPEG-TS ffmpeg pipe instead of an NDI/OMT-style
+/// envelope), while NDI and OMT — real distinct envelopes — stay isolated
+/// from everything else, `srt`/`media` included.
+fn payload_compatible(a: &str, b: &str) -> bool {
+    fn class(kind: &str) -> &str {
+        match kind {
+            "srt" | "media" => "raw-ts",
+            other => other,
+        }
+    }
+    class(a) == class(b)
+}
+
 async fn post_route(
     State(state): State<AppState>,
     Json(req): Json<RouteRequest>,
 ) -> Json<RouteResponse> {
     if let Some(kind_of) = &state.kind_of {
         if let (Some(out_kind), Some(src_kind)) = (kind_of(&req.output), kind_of(&req.source)) {
-            if out_kind != src_kind {
+            if !payload_compatible(out_kind, src_kind) {
                 return Json(RouteResponse {
                     ok: false,
                     error: Some(format!(
@@ -224,6 +243,51 @@ mod tests {
             xp.routes().get("srt-out").map(String::as_str),
             Some("srt-cam")
         );
+    }
+
+    #[tokio::test]
+    async fn media_source_routes_into_an_srt_output() {
+        // media (stills/media-player/scaler) publishes plain MPEG-TS Bytes,
+        // the same wire format an srt relay carries — routing it to an SRT
+        // output is the actual point of building it that way (a stills
+        // slate feeding a live SRT output with no transcoding step), so
+        // this must be allowed despite the differing kind strings.
+        let xp = Crosspoint::new();
+        xp.register_source("slate");
+        xp.register_output("program", "slate");
+        let kind_of: KindLookup = Arc::new(|id: &str| {
+            if id == "slate" {
+                Some("media")
+            } else {
+                Some("srt")
+            }
+        });
+        let app = app_with_kind_lookup(xp, kind_of);
+
+        let res = post_route_json(&app, "program", "slate").await;
+        assert!(res.ok, "media -> srt route should be allowed: {res:?}");
+    }
+
+    #[tokio::test]
+    async fn media_source_is_still_rejected_against_an_ndi_output() {
+        // media and srt share a payload format; NDI/OMT don't share it
+        // with either — grouping media with srt must not accidentally
+        // widen the NDI/OMT isolation too.
+        let xp = Crosspoint::new();
+        xp.register_source("ndi-cam"); // the output's untouched initial route
+        xp.register_source("slate");
+        xp.register_output("ndi-out", "ndi-cam");
+        let kind_of: KindLookup = Arc::new(|id: &str| {
+            if id == "slate" {
+                Some("media")
+            } else {
+                Some("ndi")
+            }
+        });
+        let app = app_with_kind_lookup(xp, kind_of);
+
+        let res = post_route_json(&app, "ndi-out", "slate").await;
+        assert!(!res.ok, "media -> ndi route should still be rejected");
     }
 
     #[tokio::test]

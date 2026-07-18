@@ -55,6 +55,8 @@
     padding: 0.8rem; margin-bottom: 0.6rem; display: flex; flex-direction: column; gap: 0.5rem;
   }
   .add-form.hidden { display: none; }
+  .hidden { display: none; }
+  .add-form label { font-size: 0.85rem; display: flex; align-items: center; gap: 0.4rem; }
   .add-form input, .add-form select {
     background: #101216; border: 1px solid #2a2d33; color: #e6e6e6;
     border-radius: 4px; padding: 0.4rem 0.5rem; font-size: 0.85rem; font-family: inherit;
@@ -93,8 +95,7 @@
           <option value="srt">SRT</option>
           <option value="ndi" disabled>NDI (router not built with --features ndi)</option>
           <option value="omt" disabled>OMT (router not built with --features omt)</option>
-          <option value="scaler" disabled>Scaler (Phase 2 — not built yet)</option>
-          <option value="media-player" disabled>Media player (Phase 2 — not built yet)</option>
+          <option value="media">Stills / media player / scaler</option>
         </select>
       </div>
       <div class="row">
@@ -103,6 +104,12 @@
           <option value="caller">caller — dial out</option>
         </select>
         <input name="address" placeholder="0.0.0.0:5003" required>
+      </div>
+      <div class="row hidden" data-media-source-row>
+        <select name="source"></select>
+      </div>
+      <div class="row hidden" data-media-loop-row>
+        <label><input type="checkbox" name="loop_playback" checked> Loop playback</label>
       </div>
       <p class="hint" data-hint>Router waits on this address for the encoder to connect.</p>
       <div class="actions">
@@ -124,8 +131,6 @@
           <option value="srt">SRT</option>
           <option value="ndi" disabled>NDI (router not built with --features ndi)</option>
           <option value="omt" disabled>OMT (router not built with --features omt)</option>
-          <option value="scaler" disabled>Scaler (Phase 2 — not built yet)</option>
-          <option value="media-player" disabled>Media player (Phase 2 — not built yet)</option>
         </select>
       </div>
       <div class="row">
@@ -243,6 +248,7 @@ function render(state) {
     });
   });
   populateDefaultSourceOptions();
+  populateMediaSourceOptions(document.getElementById('add-source-form'));
 }
 
 function populateDefaultSourceOptions() {
@@ -288,13 +294,37 @@ document.querySelectorAll('[data-toggle]').forEach((el) => {
 });
 
 const SRT_MODE_OPTIONS = '<option value="listener">listener — wait for a connection</option><option value="caller">caller — dial out</option>';
+const MEDIA_MODE_OPTIONS = '<option value="stills">stills — loop a static image</option><option value="mediaplayer">media player — play a local file</option><option value="scaler">scaler — rescale another source</option>';
+
+// Keeps the scaler mode's "source" dropdown (an existing crosspoint
+// source to rescale) in sync with whatever's currently registered — same
+// idea as populateDefaultSourceOptions for the destination form.
+function populateMediaSourceOptions(form) {
+  const select = form.querySelector('select[name="source"]');
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = lastState.sources.map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+  if (lastState.sources.includes(current)) select.value = current;
+}
 
 function updateFormForTransport(form) {
   const transport = form.querySelector('select[name="transport"]').value;
   const modeSelect = form.querySelector('select[name="mode"]');
   const addressInput = form.querySelector('input[name="address"]');
   const hint = form.querySelector('[data-hint]');
+  const sourceRow = form.querySelector('[data-media-source-row]');
+  const loopRow = form.querySelector('[data-media-loop-row]');
   const isSource = form.id === 'add-source-form';
+
+  // Only the source form ever reaches transport === 'media' (the
+  // destination form's dropdown has no such option), but reset these
+  // media-only rows unconditionally so switching away from media cleans
+  // up after itself.
+  sourceRow?.classList.add('hidden');
+  loopRow?.classList.add('hidden');
+  form.querySelector('select[name="source"]')?.removeAttribute('required');
+  addressInput.classList.remove('hidden');
+  addressInput.required = true;
 
   if (transport === 'ndi') {
     modeSelect.innerHTML = isSource
@@ -320,6 +350,29 @@ function updateFormForTransport(form) {
     } else {
       hint.textContent = 'Name this router advertises as an OMT output on the network.';
       addressInput.placeholder = 'Program Output';
+    }
+    return;
+  }
+
+  if (transport === 'media') {
+    if (modeSelect.innerHTML !== MEDIA_MODE_OPTIONS) {
+      modeSelect.innerHTML = MEDIA_MODE_OPTIONS;
+    }
+    const mode = modeSelect.value;
+    if (mode === 'scaler') {
+      addressInput.classList.add('hidden');
+      addressInput.required = false;
+      sourceRow?.classList.remove('hidden');
+      form.querySelector('select[name="source"]')?.setAttribute('required', '');
+      populateMediaSourceOptions(form);
+      hint.textContent = 'Rescales/re-encodes an existing source into a new one.';
+    } else if (mode === 'mediaplayer') {
+      loopRow?.classList.remove('hidden');
+      addressInput.placeholder = '/path/to/video.mp4';
+      hint.textContent = 'Path to a local media file, readable by the router process.';
+    } else {
+      addressInput.placeholder = '/path/to/image.png';
+      hint.textContent = 'Path to a local still image, readable by the router process.';
     }
     return;
   }
@@ -396,6 +449,20 @@ function endpointFields(data) {
     return mode === 'receiver'
       ? { transport, mode, address }
       : { transport, mode, name: address };
+  }
+  if (transport === 'media') {
+    if (mode === 'scaler') {
+      return { transport, mode, source: data.get('source') };
+    }
+    if (mode === 'mediaplayer') {
+      return {
+        transport,
+        mode,
+        file_path: address,
+        loop_playback: data.get('loop_playback') === 'on',
+      };
+    }
+    return { transport, mode, image_path: address };
   }
   return mode === 'listener'
     ? { transport, mode, bind: address }

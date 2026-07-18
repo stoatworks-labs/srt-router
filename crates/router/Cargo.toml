@@ -13,6 +13,7 @@ crosspoint-core = { path = "../core" }
 srt-io = { path = "../srt-io" }
 ndi-io = { path = "../ndi-io", optional = true }
 omt-io = { path = "../omt-io", optional = true }
+media-io = { path = "../media-io" }
 crosspoint-web = { path = "../web" }
 axum = "0.7"
 tokio = { version = "1", features = ["full"] }

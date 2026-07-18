@@ -44,22 +44,27 @@ async fn main() -> Result<()> {
     // listable in the web UI's add/remove menus) as one added later.
     for input in config.inputs {
         match input.endpoint {
-            config::Transport::Srt(ep) => {
+            config::InputTransport::Srt(ep) => {
                 tracing::info!(id = %input.id, "starting SRT input");
                 let cancel = srt_io::spawn_input(input.id.clone(), ep, crosspoint.clone());
                 registry.insert_source(input.id, "srt", cancel);
             }
             #[cfg(feature = "ndi")]
-            config::Transport::Ndi(ep) => {
+            config::InputTransport::Ndi(ep) => {
                 tracing::info!(id = %input.id, "starting NDI input");
                 let cancel = ndi_io::spawn_input(input.id.clone(), ep, crosspoint.clone());
                 registry.insert_source(input.id, "ndi", cancel);
             }
             #[cfg(feature = "omt")]
-            config::Transport::Omt(ep) => {
+            config::InputTransport::Omt(ep) => {
                 tracing::info!(id = %input.id, "starting OMT input");
                 let cancel = omt_io::spawn_input(input.id.clone(), ep, crosspoint.clone());
                 registry.insert_source(input.id, "omt", cancel);
+            }
+            config::InputTransport::Media(ep) => {
+                tracing::info!(id = %input.id, "starting media input");
+                let cancel = media_io::spawn_input(input.id.clone(), ep, crosspoint.clone());
+                registry.insert_source(input.id, "media", cancel);
             }
         }
     }
@@ -85,21 +90,21 @@ async fn main() -> Result<()> {
             .cloned()
             .unwrap_or(output.default_source);
         match output.endpoint {
-            config::Transport::Srt(ep) => {
+            config::OutputTransport::Srt(ep) => {
                 tracing::info!(id = %output.id, source = %initial_source, "starting SRT output");
                 let cancel =
                     srt_io::spawn_output(output.id.clone(), ep, initial_source, crosspoint.clone());
                 registry.insert_output(output.id, "srt", cancel);
             }
             #[cfg(feature = "ndi")]
-            config::Transport::Ndi(ep) => {
+            config::OutputTransport::Ndi(ep) => {
                 tracing::info!(id = %output.id, source = %initial_source, "starting NDI output");
                 let cancel =
                     ndi_io::spawn_output(output.id.clone(), ep, initial_source, crosspoint.clone());
                 registry.insert_output(output.id, "ndi", cancel);
             }
             #[cfg(feature = "omt")]
-            config::Transport::Omt(ep) => {
+            config::OutputTransport::Omt(ep) => {
                 tracing::info!(id = %output.id, source = %initial_source, "starting OMT output");
                 let cancel =
                     omt_io::spawn_output(output.id.clone(), ep, initial_source, crosspoint.clone());

@@ -34,10 +34,13 @@ common case — plain stream switching — but it's not the *only* thing a
 source can be. The engine's source abstraction is intentionally payload-only
 (see [docs/architecture.md](docs/architecture.md)), so special-purpose
 sources that actually generate a stream — a still image, a local media
-player, a scaler tap on another source — can register into the same
-crosspoint as a "source" without the engine caring that they're not relayed
-SRT. **Not built yet** — Phase 1 is relay-only; see
-[docs/roadmap.md](docs/roadmap.md).
+player, a scaler tap on another source — register into the same crosspoint
+as a "source" without the engine caring that they're not relayed SRT.
+**Built**: `crates/media-io` runs `ffmpeg` as a child process for all
+three (stills/media-player/scaler), publishing plain MPEG-TS `Bytes` — the
+same wire format an SRT relay carries — so a stills slate can feed a live
+SRT output directly, no transcoding step required. No SDK, no Cargo
+feature: just `ffmpeg` on `PATH` at runtime. See [Status](#status).
 
 Control is a local web UI backed by a small REST API: a crosspoint grid
 (click a cell to route that output from that source), plus **Add
@@ -55,13 +58,16 @@ alternative to NDI — implemented via hand-written FFI against the real SDK
 usable from the TOML config **and** the runtime add-source/add-destination
 REST API **and** the web UI's Add source/Add destination menus, behind their
 own opt-in Cargo features (`cargo run --features ndi`, `--features omt`, or
-both together). Every input/output entry — TOML or REST — now needs an
-explicit `transport = "srt" | "ndi" | "omt"` tag; see
+both together). `crates/media-io` (stills/media-player/scaler, see
+[What it does](#what-it-does)) needs no feature — just `ffmpeg` on `PATH`.
+Every input/output entry — TOML or REST — now needs an explicit
+`transport = "srt" | "ndi" | "omt" | "media"` tag; see
 [config/example.toml](config/example.toml).
 
 ## Status
 
-**Phase 1 (current): relay-only crosspoint + web UI, dynamic add/remove.**
+**Phase 1: relay-only crosspoint + web UI, dynamic add/remove — done.**
+**Phase 2 (current): special-purpose (non-relay) sources — done.**
 Working:
 
 - SRT input/output as either `listener` (this router waits for a
@@ -99,32 +105,50 @@ Working:
   input/output disambiguates them even where their endpoint shapes are
   otherwise identical (NDI's and OMT's `Sender { name }`, in particular —
   see [docs/roadmap.md](docs/roadmap.md) for why that mattered).
+- `crates/media-io`: stills, a local media player, and a decode/rescale/
+  re-encode scaler tap, each running real `ffmpeg` as a child process and
+  publishing plain MPEG-TS `Bytes` — no envelope, no proprietary SDK, no
+  Cargo feature (just `ffmpeg` on `PATH`). Fully wired into the TOML
+  config, the REST API, and the web UI's Add source menu (source-only —
+  none of these make sense as an output). A `media` source routes straight
+  into an SRT output with no transcoding step, since they share the same
+  raw-MPEG-TS payload class; the web crate's cross-kind route check
+  encodes that explicitly rather than requiring exact kind-string equality.
+  Scaler additionally consumes another registered source's own `Bytes`
+  (subscribe, pipe into ffmpeg's stdin) — the one non-relay path here that
+  really does transcode.
 - CI (GitHub Actions) runs `fmt --check`, `clippy -D warnings`, and the full
-  test suite on every push/PR — SRT-only (`ndi-io`/`omt-io` need real
-  SDKs CI can't install, so they're real workspace members but excluded
-  from `default-members`, see [docs/architecture.md](docs/architecture.md)).
+  test suite on every push/PR — SRT (+media) only (`ndi-io`/`omt-io` need
+  real SDKs CI can't install, so they're real workspace members but
+  excluded from `default-members`; `media-io` needs only `ffmpeg`, which CI
+  installs explicitly — see [docs/architecture.md](docs/architecture.md)).
 - Verified locally, not just compiled: `cargo test` passes — default
-  (SRT-only), `--features ndi`, `--features omt`, and `--features ndi,omt`
-  all build and pass clean — including integration tests
+  (SRT+media), `--features ndi`, `--features omt`, and `--features
+  ndi,omt` all build and pass clean — including integration tests
   (`crates/srt-io/tests/relay.rs`, `crates/ndi-io/tests/relay.rs`,
-  `crates/omt-io/tests/relay.rs`) that relay real protocol traffic
-  end-to-end through the crosspoint — one SRT test also exercises a **live
-  re-route mid-stream over an already-established connection**. Separately
+  `crates/omt-io/tests/relay.rs`, `crates/media-io/tests/relay.rs`) that
+  relay real protocol traffic (or, for media-io, real ffmpeg-produced
+  MPEG-TS, byte-checked for valid sync bytes) end-to-end through the
+  crosspoint — one SRT test also exercises a **live re-route mid-stream
+  over an already-established connection**, and one media-io test proves
+  the scaler recovers once its upstream source appears late. Separately
   confirmed by hand: running the binary against `config/example.toml` binds
   real UDP/SRT listener sockets (via `lsof`), adding a source through the
   web UI binds a new one live and removing it frees the port (also via
   `lsof`), the REST API and a real browser click both drive live crosspoint
   changes, the websocket push updates the grid with no client-side polling,
-  a persisted route survives a real process restart, and adding an OMT
+  a persisted route survives a real process restart, adding an OMT
   source/destination through the running web UI produces the correct
-  `omt`-badged rows on the grid.
+  `omt`-badged rows on the grid, and adding real stills/media-player/scaler
+  sources through the running web UI (backed by real generated test
+  images/video) produces `media`-badged rows that route cleanly into a
+  live SRT output.
 
 **Not yet done:** no test against a real third-party SRT/NDI/OMT encoder or
 decoder, or over a real (non-loopback) network path — only local testing so
-far, still the main open gap. Also missing: special-purpose sources
-(stills/media player/scaler — the add-source menu shows them as disabled
-options), auth on the web UI/API, external control API/Companion
-integration. See [docs/roadmap.md](docs/roadmap.md) for the full phased
+far, still the main open gap. Also missing: auth on the web UI/API,
+external control API/Companion integration. See
+[docs/roadmap.md](docs/roadmap.md) for the full phased
 plan.
 
 ## Quick start
@@ -207,6 +231,6 @@ Full phased plan in [docs/roadmap.md](docs/roadmap.md). Main open items:
 
 - [ ] **Real-world testing** — against a third-party SRT/NDI/OMT encoder/decoder and over a real (non-loopback) network path; the main open gap.
 - [x] **NDI and OMT live in the web UI, config, and REST API** — both fully wired behind their own opt-in Cargo features (`ndi`, `omt`), disambiguated by an explicit `transport` tag per input/output.
-- [ ] **Special-purpose sources** — stills, local media player, scaler tap (shown as disabled options in the add-source menu today).
+- [x] **Special-purpose sources** — stills, local media player, scaler tap, all built on real `ffmpeg` child processes and live in the web UI's Add source menu, config, and REST API.
 - [ ] **Auth/TLS** on the web UI/API.
 - [ ] **External control API / Bitfocus Companion** integration.

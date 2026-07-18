@@ -1,15 +1,19 @@
 # Example srtrouter configuration.
 #
-# Every input and output names a `transport` ("srt", "ndi", or "omt" —
-# the latter two only take effect when the router is built with the
-# matching Cargo feature) plus that transport's own `mode`. SRT's modes are
+# Every input and output names a `transport` ("srt", "ndi", "omt", or
+# "media" — ndi/omt only take effect when the router is built with the
+# matching Cargo feature; media has no such requirement, only ffmpeg on
+# PATH at runtime) plus that transport's own `mode`. SRT's modes are
 # "listener" (this router waits for the far end to connect) or "caller"
-# (this router dials out); NDI/OMT's are "receiver" or "sender". Mix
-# transports and modes freely within inputs/outputs — a common SRT setup is
-# encoders calling *in* to fixed input ports, and decoders/downstream
-# systems listening for this router to call *out* to them, but any
-# combination works, and an NDI/OMT source can feed an SRT output or vice
-# versa exactly as easily as staying within one transport.
+# (this router dials out); NDI/OMT's are "receiver" or "sender"; media's
+# are "stills"/"mediaplayer"/"scaler" (inputs only — media has no output
+# side, see docs/architecture.md). Mix transports and modes freely within
+# inputs/outputs — a common SRT setup is encoders calling *in* to fixed
+# input ports, and decoders/downstream systems listening for this router to
+# call *out* to them, but any combination works, and an NDI/OMT/media
+# source can feed an SRT output or vice versa exactly as easily as staying
+# within one transport (media publishes plain MPEG-TS, the same wire format
+# SRT relays, so a stills slate needs no transcoding to feed an SRT output).
 
 [web]
 # Local web UI + REST API for the crosspoint grid.
@@ -55,6 +59,31 @@ connect = "203.0.113.10:5000"
 # mode = "sender"
 # name = "srtrouter Program"
 # default_source = "cam1"
+
+# Stills/media-player/scaler inputs look like this — no Cargo feature
+# needed, just ffmpeg on PATH at runtime. width/height default to
+# 1280x720 if omitted; loop_playback defaults to true.
+#
+# [[inputs]]
+# id = "slate"
+# transport = "media"
+# mode = "stills"
+# image_path = "/opt/srtrouter/slate.png"
+#
+# [[inputs]]
+# id = "sponsor-loop"
+# transport = "media"
+# mode = "mediaplayer"
+# file_path = "/opt/srtrouter/sponsor-loop.mp4"
+# loop_playback = true
+#
+# [[inputs]]
+# id = "cam1-720p"
+# transport = "media"
+# mode = "scaler"
+# source = "cam1"       # rescales/re-encodes an existing source
+# width = 1280
+# height = 720
 
 [[outputs]]
 id = "program"

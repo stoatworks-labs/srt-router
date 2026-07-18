@@ -1,6 +1,6 @@
 # Roadmap
 
-## Phase 1 — relay crosspoint + web UI (current)
+## Phase 1 — relay crosspoint + web UI — done
 
 - [x] Transport-agnostic crosspoint engine (`crates/core`), unit tested.
 - [x] SRT relay input/output (listener + caller, auto-reconnect)
@@ -139,33 +139,71 @@
       `srtrouter`'s actual `[[bin]]` target, whenever the `omt` feature and
       `OMT_LIB_DIR` are both set.
 
-## Phase 2 — special-purpose sources
+## Phase 2 — special-purpose sources — done
 
-The core engine's `Source` abstraction (see
-[architecture.md](architecture.md)) is meant to support these without
-changing `crates/core` — each is a new producer that calls
-`Crosspoint::register_source` and publishes chunks it generated instead of
-relayed. The web UI's Add source/destination forms already list these as
-disabled options ("Phase 2 — not built yet") so the menu shape exists
-ahead of the backends:
+The core engine's `Source` abstraction (see [architecture.md](architecture.md))
+supports these without any change to `crates/core` — each is a new producer
+that calls `Crosspoint::register_source` and publishes chunks it generated
+instead of relayed. All three are built in `crates/media-io`:
 
-- **Stills source** — loop a static image, encoded as an SRT-compatible
-  stream (likely via an `ffmpeg`/`gstreamer` child process or library
-  binding — needs a real decision on which, see below).
-- **Media player source** — play a local file (loop or one-shot) into the
-  crosspoint as a source.
-- **Scaler source** — take another registered source, decode, rescale,
-  re-encode, and publish the result as a new source (the one case where
-  "pure relay" isn't the point — this is deliberately a real transcode
-  path).
+- [x] **Stills source** — loop a static image, encoded as a continuous
+      MPEG-TS stream via a real `ffmpeg` child process
+      (`-loop 1 -i image -f mpegts pipe:1`).
+- [x] **Media player source** — play a local file (loop or one-shot) into
+      the crosspoint as a source, same ffmpeg-child-process approach
+      (`-stream_loop -1` when looping).
+- [x] **Scaler source** — take another registered source, decode, rescale,
+      re-encode, and publish the result as a new source (the one case where
+      "pure relay" isn't the point — this is deliberately a real transcode
+      path). Subscribes to the upstream source's own `Bytes` and feeds them
+      into ffmpeg's `pipe:0`; retries (same fixed-delay pattern as SRT's
+      reconnect loop) if the upstream source doesn't exist yet or
+      disappears.
 
-Open question, not yet decided: whether these are built on `ffmpeg`/
-`gstreamer` as external processes (simpler, well-tested codecs, but a
-runtime dependency and process-management overhead) or Rust-native
-encode/decode crates (no external dependency, but more integration work and
-narrower codec support). Needs research before starting Phase 2.
+**The ffmpeg-vs-gstreamer-vs-native decision, resolved**: `ffmpeg` as a
+child process, for three reasons found while scoping this in practice.
+First, it needs no proprietary SDK or build-time linking at all (unlike
+NDI/OMT) — it's a pure runtime dependency, checked by trying to spawn it —
+so `media-io` carries no Cargo feature gate and stays a normal
+`default-members`/CI-tested crate, unlike `ndi-io`/`omt-io`. Second, and
+initially a surprise: this project's own dev-machine ffmpeg (Homebrew) has
+no `srt` protocol support at all (`ffmpeg -protocols` lists `srtp`, not
+`srt` — the `--enable-libsrt` build flag isn't Homebrew's default), so
+asking ffmpeg to speak `srt://` directly would have made the whole feature
+dependent on a non-default ffmpeg build. Piping raw MPEG-TS over
+`pipe:1`/`pipe:0` sidesteps that entirely — works with any baseline ffmpeg
+install, and is actually simpler than a network round-trip since the bytes
+are already local to this process. Third, that same raw-pipe design means
+these sources publish exactly the same wire format an SRT relay does (no
+envelope, unlike NDI/OMT) — a stills slate can feed a live SRT output with
+literally zero transcoding, which needed one deliberate fix: the web
+crate's cross-kind route check (`crates/web/src/lib.rs`) used to require
+exact kind-string equality, which would have wrongly blocked `media` ->
+`srt` routing; it now groups `srt`/`media` into one payload-compatible
+class while keeping NDI/OMT's real envelopes isolated (see
+[architecture.md](architecture.md)'s media-io section for the details).
 
-## Phase 3 — operational hardening
+Also needed splitting `config::Transport`/`management::EndpointRequest`
+(previously one enum shared by both inputs and outputs) into
+`InputTransport`/`SourceEndpointRequest` (media included) and
+`OutputTransport`/`EndpointRequest` (media excluded), since none of
+stills/media-player/scaler make sense as an output — this makes routing a
+`"transport":"media"` output request a compile-time impossibility on the
+config side and a `422` on the REST side, rather than a runtime special
+case to remember.
+
+Verified for real: `crates/media-io/tests/relay.rs` generates its own test
+assets via ffmpeg's `lavfi` synthetic sources (no checked-in binary
+fixtures) and checks genuine MPEG-TS sync bytes (`0x47` every 188 bytes)
+come out the other end of the crosspoint for all three source types,
+including a scaler-recovers-once-its-upstream-appears-late test. CI
+installs `ffmpeg` explicitly (`.github/workflows/ci.yml`) rather than
+assuming the runner image bundles it. Live end-to-end: adding real stills/
+media-player/scaler sources through the running web UI (backed by real
+generated test images/video, not mocks) produces `media`-badged grid rows
+that route cleanly into a live SRT output.
+
+## Phase 3 — operational hardening (current)
 
 - [x] Persist crosspoint routing across a restart — optional `[state]` in
       the TOML config, output -> source routes written to a JSON file

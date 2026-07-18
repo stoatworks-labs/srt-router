@@ -3,12 +3,15 @@
 //! converge on the same `Registry`, so a config-defined source is exactly
 //! as listable/removable here as one added later through this API.
 //!
-//! Transport support here mirrors `config::Transport`, including using the
-//! same explicit `transport` tag for the same reason (see that module's
-//! doc comment: NDI's and OMT's `Sender` request shapes are identical, so
-//! nothing short of an explicit tag can tell them apart). SRT is always
-//! available; NDI/OMT depend on the `ndi`/`omt` Cargo features — see
-//! `available_transports`.
+//! Transport support here mirrors `config::InputTransport`/
+//! `OutputTransport`, including using the same explicit `transport` tag for
+//! the same reason (see that module's doc comment: NDI's and OMT's
+//! `Sender` request shapes are identical, so nothing short of an explicit
+//! tag can tell them apart). SRT is always available; NDI/OMT depend on the
+//! `ndi`/`omt` Cargo features — see `available_transports`. `media`
+//! (stills/media-player/scaler) is source-only, same reasoning as
+//! `config::OutputTransport` having no `Media` variant — hence the split
+//! between `SourceEndpointRequest` and `EndpointRequest` below.
 
 use std::sync::Arc;
 
@@ -91,9 +94,88 @@ impl From<OmtEndpointRequest> for omt_io::Endpoint {
     }
 }
 
-/// Explicitly tagged by `transport` — see `config::Transport`'s doc
+/// Mirrors `media_io::Endpoint`, same reasoning as `SrtEndpointRequest`.
+/// Fields are `Option` here (rather than reusing `media_io`'s own
+/// `#[serde(default = ...)]` fns) so the "what happens if omitted" default
+/// lives in one place, the `From` impl below, reusing `media_io`'s own
+/// exported default functions rather than duplicating their literal
+/// values.
+#[derive(Deserialize)]
+#[serde(tag = "mode", rename_all = "lowercase")]
+pub enum MediaEndpointRequest {
+    Stills {
+        image_path: std::path::PathBuf,
+        width: Option<u32>,
+        height: Option<u32>,
+    },
+    MediaPlayer {
+        file_path: std::path::PathBuf,
+        loop_playback: Option<bool>,
+        width: Option<u32>,
+        height: Option<u32>,
+    },
+    Scaler {
+        source: String,
+        width: Option<u32>,
+        height: Option<u32>,
+    },
+}
+
+impl From<MediaEndpointRequest> for media_io::Endpoint {
+    fn from(req: MediaEndpointRequest) -> Self {
+        match req {
+            MediaEndpointRequest::Stills {
+                image_path,
+                width,
+                height,
+            } => media_io::Endpoint::Stills {
+                image_path,
+                width: width.unwrap_or_else(media_io::default_width),
+                height: height.unwrap_or_else(media_io::default_height),
+            },
+            MediaEndpointRequest::MediaPlayer {
+                file_path,
+                loop_playback,
+                width,
+                height,
+            } => media_io::Endpoint::MediaPlayer {
+                file_path,
+                loop_playback: loop_playback.unwrap_or_else(media_io::default_loop_playback),
+                width: width.unwrap_or_else(media_io::default_width),
+                height: height.unwrap_or_else(media_io::default_height),
+            },
+            MediaEndpointRequest::Scaler {
+                source,
+                width,
+                height,
+            } => media_io::Endpoint::Scaler {
+                source,
+                width: width.unwrap_or_else(media_io::default_width),
+                height: height.unwrap_or_else(media_io::default_height),
+            },
+        }
+    }
+}
+
+/// Explicitly tagged by `transport` — see `config::InputTransport`'s doc
 /// comment for why an implicit (untagged-by-`mode`) trick isn't safe once
-/// more than one frame-based transport can be compiled in.
+/// more than one frame-based transport can be compiled in. Used for
+/// `POST /api/manage/sources`; a superset of [`EndpointRequest`] (used for
+/// outputs) since `media` sources have no output-side counterpart — see
+/// `config::OutputTransport`.
+#[derive(Deserialize)]
+#[serde(tag = "transport", rename_all = "lowercase")]
+pub enum SourceEndpointRequest {
+    Srt(SrtEndpointRequest),
+    #[cfg(feature = "ndi")]
+    Ndi(NdiEndpointRequest),
+    #[cfg(feature = "omt")]
+    Omt(OmtEndpointRequest),
+    Media(MediaEndpointRequest),
+}
+
+/// Explicitly tagged by `transport`. Used for `POST /api/manage/outputs` —
+/// see [`SourceEndpointRequest`] for why this is a strict subset of it.
 #[derive(Deserialize)]
 #[serde(tag = "transport", rename_all = "lowercase")]
 pub enum EndpointRequest {
@@ -108,7 +190,7 @@ pub enum EndpointRequest {
 pub struct AddSourceRequest {
     pub id: String,
     #[serde(flatten)]
-    pub endpoint: EndpointRequest,
+    pub endpoint: SourceEndpointRequest,
 }
 
 #[derive(Deserialize)]
@@ -124,12 +206,15 @@ pub struct AddOutputRequest {
 /// this on load to decide which options its transport dropdowns enable,
 /// rather than guessing from a compile-time constant baked into the page.
 fn available_transports() -> Vec<&'static str> {
-    #[allow(unused_mut)]
     let mut kinds = vec!["srt"];
     #[cfg(feature = "ndi")]
     kinds.push("ndi");
     #[cfg(feature = "omt")]
     kinds.push("omt");
+    // media (stills/media-player/scaler) has no SDK/build dependency, so
+    // it's always available — unlike ndi/omt it isn't gated by a Cargo
+    // feature.
+    kinds.push("media");
     kinds
 }
 
@@ -196,25 +281,33 @@ async fn add_source(
         return Err(conflict(format!("source '{}' already exists", req.id)));
     }
     let kind = match req.endpoint {
-        EndpointRequest::Srt(ep) => {
+        SourceEndpointRequest::Srt(ep) => {
             tracing::info!(id = %req.id, "adding SRT source via management API");
             let cancel = srt_io::spawn_input(req.id.clone(), ep.into(), state.crosspoint.clone());
             state.registry.insert_source(req.id.clone(), "srt", cancel);
             "srt"
         }
         #[cfg(feature = "ndi")]
-        EndpointRequest::Ndi(ep) => {
+        SourceEndpointRequest::Ndi(ep) => {
             tracing::info!(id = %req.id, "adding NDI source via management API");
             let cancel = ndi_io::spawn_input(req.id.clone(), ep.into(), state.crosspoint.clone());
             state.registry.insert_source(req.id.clone(), "ndi", cancel);
             "ndi"
         }
         #[cfg(feature = "omt")]
-        EndpointRequest::Omt(ep) => {
+        SourceEndpointRequest::Omt(ep) => {
             tracing::info!(id = %req.id, "adding OMT source via management API");
             let cancel = omt_io::spawn_input(req.id.clone(), ep.into(), state.crosspoint.clone());
             state.registry.insert_source(req.id.clone(), "omt", cancel);
             "omt"
+        }
+        SourceEndpointRequest::Media(ep) => {
+            tracing::info!(id = %req.id, "adding media source via management API");
+            let cancel = media_io::spawn_input(req.id.clone(), ep.into(), state.crosspoint.clone());
+            state
+                .registry
+                .insert_source(req.id.clone(), "media", cancel);
+            "media"
         }
     };
     Ok(Json(ManageEntry { id: req.id, kind }))
@@ -585,5 +678,74 @@ mod tests {
             .unwrap()
             .cancel
             .cancel();
+    }
+
+    /// Runs real `ffmpeg` (generating its own test image via lavfi, like
+    /// `media-io`'s own integration test) — this checks the management API
+    /// actually dispatches a `"transport":"media"` source request to
+    /// `media_io::spawn_input` and registers it with kind `"media"`, not
+    /// just that `MediaEndpointRequest` deserializes.
+    #[tokio::test]
+    async fn add_media_stills_source_is_dispatched_by_its_transport_tag() {
+        let image_path = std::env::temp_dir().join("management-test-stills.png");
+        let status = std::process::Command::new("ffmpeg")
+            .args([
+                "-y",
+                "-loglevel",
+                "error",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=c=green:s=64x64",
+                "-frames:v",
+                "1",
+                image_path.to_str().unwrap(),
+            ])
+            .status()
+            .expect("failed to run ffmpeg to generate test image");
+        assert!(status.success());
+
+        let state = test_state();
+        let app = router(state.clone());
+        let (status, body) = call(
+            &app,
+            post(
+                "/api/manage/sources",
+                &format!(
+                    r#"{{"id":"stills-src","transport":"media","mode":"stills","image_path":"{}"}}"#,
+                    image_path.display()
+                ),
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "response body: {body:?}");
+        assert_eq!(body["kind"], "media");
+        assert_eq!(state.registry.kind_of("stills-src"), Some("media"));
+
+        state
+            .registry
+            .remove_source("stills-src")
+            .unwrap()
+            .cancel
+            .cancel();
+    }
+
+    /// `media` (stills/media-player/scaler) is source-only — `Transport` has
+    /// no `Media` variant on the output side (`config::OutputTransport`),
+    /// and `EndpointRequest` mirrors that. A `"transport":"media"` output
+    /// body should fail to deserialize, not silently fall through to some
+    /// other variant.
+    #[tokio::test]
+    async fn media_transport_is_rejected_for_outputs() {
+        let app = router(test_state());
+        let (status, _) = call(
+            &app,
+            post(
+                "/api/manage/outputs",
+                r#"{"id":"bad-out","transport":"media","mode":"stills","image_path":"/tmp/x.png","default_source":"nope"}"#,
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
     }
 }
