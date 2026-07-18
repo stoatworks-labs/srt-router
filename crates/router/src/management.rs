@@ -3,8 +3,12 @@
 //! converge on the same `Registry`, so a config-defined source is exactly
 //! as listable/removable here as one added later through this API.
 //!
-//! Transport support here mirrors `config::Transport`: SRT always, NDI when
-//! built with `--features ndi` (see `available_transports`).
+//! Transport support here mirrors `config::Transport`, including using the
+//! same explicit `transport` tag for the same reason (see that module's
+//! doc comment: NDI's and OMT's `Sender` request shapes are identical, so
+//! nothing short of an explicit tag can tell them apart). SRT is always
+//! available; NDI/OMT depend on the `ndi`/`omt` Cargo features — see
+//! `available_transports`.
 
 use std::sync::Arc;
 
@@ -64,15 +68,40 @@ impl From<NdiEndpointRequest> for ndi_io::Endpoint {
     }
 }
 
-/// Untagged: SRT's `mode` is `listener`/`caller`, NDI's is
-/// `receiver`/`sender` — disjoint, so serde picks the right variant from
-/// the request body alone, same trick as `config::Transport`.
+/// Mirrors `omt_io::Endpoint`. Its `mode` values (`receiver`/`sender`) and
+/// `Sender` shape (`{mode: "sender", name: "..."}`) are identical to
+/// NDI's — this is exactly why `EndpointRequest` below needs an explicit
+/// tag rather than the untagged trick `SrtEndpointRequest`/
+/// `NdiEndpointRequest` alone could once get away with.
+#[cfg(feature = "omt")]
 #[derive(Deserialize)]
-#[serde(untagged)]
+#[serde(tag = "mode", rename_all = "lowercase")]
+pub enum OmtEndpointRequest {
+    Receiver { address: String },
+    Sender { name: String },
+}
+
+#[cfg(feature = "omt")]
+impl From<OmtEndpointRequest> for omt_io::Endpoint {
+    fn from(req: OmtEndpointRequest) -> Self {
+        match req {
+            OmtEndpointRequest::Receiver { address } => omt_io::Endpoint::Receiver { address },
+            OmtEndpointRequest::Sender { name } => omt_io::Endpoint::Sender { name },
+        }
+    }
+}
+
+/// Explicitly tagged by `transport` — see `config::Transport`'s doc
+/// comment for why an implicit (untagged-by-`mode`) trick isn't safe once
+/// more than one frame-based transport can be compiled in.
+#[derive(Deserialize)]
+#[serde(tag = "transport", rename_all = "lowercase")]
 pub enum EndpointRequest {
     Srt(SrtEndpointRequest),
     #[cfg(feature = "ndi")]
     Ndi(NdiEndpointRequest),
+    #[cfg(feature = "omt")]
+    Omt(OmtEndpointRequest),
 }
 
 #[derive(Deserialize)]
@@ -99,6 +128,8 @@ fn available_transports() -> Vec<&'static str> {
     let mut kinds = vec!["srt"];
     #[cfg(feature = "ndi")]
     kinds.push("ndi");
+    #[cfg(feature = "omt")]
+    kinds.push("omt");
     kinds
 }
 
@@ -178,6 +209,13 @@ async fn add_source(
             state.registry.insert_source(req.id.clone(), "ndi", cancel);
             "ndi"
         }
+        #[cfg(feature = "omt")]
+        EndpointRequest::Omt(ep) => {
+            tracing::info!(id = %req.id, "adding OMT source via management API");
+            let cancel = omt_io::spawn_input(req.id.clone(), ep.into(), state.crosspoint.clone());
+            state.registry.insert_source(req.id.clone(), "omt", cancel);
+            "omt"
+        }
     };
     Ok(Json(ManageEntry { id: req.id, kind }))
 }
@@ -233,6 +271,18 @@ async fn add_output(
             );
             state.registry.insert_output(req.id.clone(), "ndi", cancel);
             "ndi"
+        }
+        #[cfg(feature = "omt")]
+        EndpointRequest::Omt(ep) => {
+            tracing::info!(id = %req.id, source = %req.default_source, "adding OMT output via management API");
+            let cancel = omt_io::spawn_output(
+                req.id.clone(),
+                ep.into(),
+                req.default_source,
+                state.crosspoint.clone(),
+            );
+            state.registry.insert_output(req.id.clone(), "omt", cancel);
+            "omt"
         }
     };
     Ok(Json(ManageEntry { id: req.id, kind }))
@@ -330,7 +380,9 @@ mod tests {
             &app,
             post(
                 "/api/manage/sources",
-                &format!(r#"{{"id":"test-src","mode":"listener","bind":"127.0.0.1:{PORT}"}}"#),
+                &format!(
+                    r#"{{"id":"test-src","transport":"srt","mode":"listener","bind":"127.0.0.1:{PORT}"}}"#
+                ),
             ),
         )
         .await;
@@ -367,7 +419,7 @@ mod tests {
             &app,
             post(
                 "/api/manage/sources",
-                r#"{"id":"dup","mode":"listener","bind":"127.0.0.1:19802"}"#,
+                r#"{"id":"dup","transport":"srt","mode":"listener","bind":"127.0.0.1:19802"}"#,
             ),
         )
         .await;
@@ -392,7 +444,7 @@ mod tests {
             &app,
             post(
                 "/api/manage/outputs",
-                r#"{"id":"out1","mode":"listener","bind":"127.0.0.1:19803"}"#,
+                r#"{"id":"out1","transport":"srt","mode":"listener","bind":"127.0.0.1:19803"}"#,
             ),
         )
         .await;
@@ -416,18 +468,18 @@ mod tests {
 
     #[cfg(feature = "ndi")]
     #[tokio::test]
-    async fn add_ndi_source_is_dispatched_by_its_disjoint_mode_value() {
+    async fn add_ndi_source_is_dispatched_by_its_transport_tag() {
         // No real NDI SDK interaction here (that's ndi-io's own integration
-        // test) — this only checks the untagged EndpointRequest picks the
-        // NDI variant from `mode: "receiver"` and the registry ends up
-        // tagged "ndi", not "srt".
+        // test) — this only checks EndpointRequest picks the Ndi variant
+        // from `"transport":"ndi"` and the registry ends up tagged "ndi",
+        // not "srt".
         let state = test_state();
         let app = router(state.clone());
         let (status, body) = call(
             &app,
             post(
                 "/api/manage/sources",
-                r#"{"id":"ndi-src","mode":"receiver","source_name":"some-camera"}"#,
+                r#"{"id":"ndi-src","transport":"ndi","mode":"receiver","source_name":"some-camera"}"#,
             ),
         )
         .await;
@@ -446,6 +498,90 @@ mod tests {
         state
             .registry
             .remove_source("ndi-src")
+            .unwrap()
+            .cancel
+            .cancel();
+    }
+
+    #[cfg(feature = "omt")]
+    #[tokio::test]
+    async fn add_omt_source_is_dispatched_by_its_transport_tag() {
+        // Mirrors add_ndi_source_is_dispatched_by_its_transport_tag above,
+        // for OMT. No real OMT SDK interaction (that's omt-io's own
+        // integration test).
+        let state = test_state();
+        let app = router(state.clone());
+        let (status, body) = call(
+            &app,
+            post(
+                "/api/manage/sources",
+                r#"{"id":"omt-src","transport":"omt","mode":"receiver","address":"some-camera"}"#,
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["kind"], "omt");
+        assert_eq!(state.registry.kind_of("omt-src"), Some("omt"));
+
+        // Same reasoning as the NDI test: clean up the forever-discovering
+        // task explicitly rather than relying on omt-io's cancellation
+        // polling bound.
+        state
+            .registry
+            .remove_source("omt-src")
+            .unwrap()
+            .cancel
+            .cancel();
+    }
+
+    #[cfg(all(feature = "ndi", feature = "omt"))]
+    #[tokio::test]
+    async fn ndi_and_omt_sender_requests_are_not_confused_with_each_other() {
+        // The actual regression test for the bug documented in
+        // docs/roadmap.md: NDI's and OMT's Sender request shape is
+        // identical ({mode: "sender", name: "..."}). Before the explicit
+        // `transport` tag, an untagged EndpointRequest would have always
+        // resolved both of these to whichever variant was declared first
+        // in the enum — silently misrouting one as the other. With the
+        // tag, each must resolve to its own kind despite the identical
+        // shape everywhere except that one field.
+        let state = test_state();
+        let app = router(state.clone());
+
+        let (status, body) = call(
+            &app,
+            post(
+                "/api/manage/outputs",
+                r#"{"id":"ndi-out","transport":"ndi","mode":"sender","name":"Shared Name","default_source":"nope"}"#,
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "ndi request body: {body:?}");
+        assert_eq!(body["kind"], "ndi");
+
+        let (status, body) = call(
+            &app,
+            post(
+                "/api/manage/outputs",
+                r#"{"id":"omt-out","transport":"omt","mode":"sender","name":"Shared Name","default_source":"nope"}"#,
+            ),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK, "omt request body: {body:?}");
+        assert_eq!(body["kind"], "omt");
+
+        assert_eq!(state.registry.kind_of("ndi-out"), Some("ndi"));
+        assert_eq!(state.registry.kind_of("omt-out"), Some("omt"));
+
+        state
+            .registry
+            .remove_output("ndi-out")
+            .unwrap()
+            .cancel
+            .cancel();
+        state
+            .registry
+            .remove_output("omt-out")
             .unwrap()
             .cancel
             .cancel();

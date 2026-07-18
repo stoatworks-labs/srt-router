@@ -84,12 +84,16 @@ or knows NDI exists — it's still just moving `Bytes`.
 ![One crosspoint, two ways of filling a Bytes chunk: SRT relays its socket payload straight through, NDI encodes a VideoFrame/AudioFrame/MetadataFrame into a self-describing envelope and decodes it back on the other side, both ending up in the same crosspoint-core Bytes broadcast channel](diagrams/multi-transport-envelope.svg)
 
 The real consequence of this design, not just a footnote: an SRT source
-can't be routed to an NDI output (or vice versa) without actual
+can't be routed to an NDI/OMT output (or vice versa) without actual
 transcoding — they're different envelopes, not just different wire formats
-carrying the same thing. `crates/ndi-io` isn't wired into the `srtrouter`
-binary/config yet (see [roadmap.md](roadmap.md)), but it's a real,
-independently tested crate (`crates/ndi-io/tests/relay.rs` drives an actual
-NDI sender/receiver against it) proving the pattern holds.
+carrying the same thing. The router enforces this: cross-kind routes are
+rejected at the API layer (`src/registry.rs` tracks each source/output's
+transport kind; `POST /api/route` checks it matches before applying). Both
+`crates/ndi-io` and `crates/omt-io` are wired into the `srtrouter`
+binary/config/UI (see [roadmap.md](roadmap.md)) and independently tested —
+`crates/ndi-io/tests/relay.rs` and `crates/omt-io/tests/relay.rs` each drive
+an actual sender/receiver of their respective protocol against it, proving
+the envelope pattern holds for both.
 
 ## Crate layout
 
@@ -125,31 +129,70 @@ NDI sender/receiver against it) proving the pattern holds.
   bindgen against its headers) — it's a genuine workspace member
   (buildable/testable via `-p ndi-io`) but excluded from
   `default-members`, so it doesn't affect the default `cargo build`/`cargo
-  test`/CI, which stay SRT-only. Not yet referenced by `crates/router`.
-- `crates/omt-io` (`omt-io`) — placeholder for the equivalent OMT
-  transport (open, MIT-licensed protocol). Not implemented — the only
-  existing Rust wrapper is Windows-only and incomplete; real support means
-  hand-written FFI against libomt's own header/binary. Also excluded from
-  `default-members`.
+  test`/CI, which stay SRT-only. Wired into `crates/router` behind the `ndi`
+  Cargo feature — config, runtime REST API, and web UI all reach it.
+- `crates/omt-io` (`omt-io`) — the OMT transport (open, MIT-licensed
+  protocol): same `spawn_input`/`spawn_output` shape again, hand-written FFI
+  (`src/sys.rs`) transcribed directly from `libomt.h` (no bindgen — the C
+  API is small and stable enough that this was less effort and more
+  auditable than a build-time bindgen step), `src/envelope.rs` doing the
+  same frame<->`Bytes` conversion. Requires `OMT_LIB_DIR` pointed at a
+  `libomtnet` release's `Libraries/<platform>` folder to build (no standard
+  install location exists for OMT the way NDI has one). Also excluded from
+  `default-members`. Wired into `crates/router` behind the `omt` Cargo
+  feature, the same way as NDI — including being usable simultaneously with
+  it (`--features ndi,omt`). Because `omt-io` has no `[[bin]]` target of its
+  own, its rpath (`-Wl,-rpath,$OMT_LIB_DIR`) only reaches its *own* test
+  binaries via its `build.rs`; `crates/router/build.rs` emits the same
+  rpath arg again for `srtrouter`'s actual `[[bin]]` target when the `omt`
+  feature is on, which is what lets a built `srtrouter` binary find
+  `libomt` at process startup without `DYLD_LIBRARY_PATH`/`LD_LIBRARY_PATH`
+  set.
 
 ## Config format
 
-Each input/output is one SRT endpoint in either mode:
+Every input/output names an explicit `transport = "srt" | "ndi" | "omt"`
+(NDI/OMT entries only take effect when the router is built with the
+matching Cargo feature), plus that transport's own `mode`:
 
 ```toml
 [[inputs]]
 id = "cam1"
+transport = "srt"
 mode = "listener"       # this router waits for the connection
 bind = "0.0.0.0:5001"
 
 [[inputs]]
 id = "remote-feed"
+transport = "srt"
 mode = "caller"         # this router dials out
 connect = "203.0.113.10:5000"
+
+[[inputs]]
+id = "ndi-cam"
+transport = "ndi"
+mode = "receiver"       # discover a source whose name contains this text
+source_name = "SOME-MACHINE (Camera 1)"
+
+[[inputs]]
+id = "omt-cam"
+transport = "omt"
+mode = "receiver"       # discover a source whose discovery address contains this text
+address = "SOME-MACHINE (Camera 1)"
 ```
 
 Outputs are the same shape plus `default_source` (what they're routed from
-at startup if nothing better is known — see below).
+at startup if nothing better is known — see below); NDI/OMT outputs use
+`mode = "sender"` with a `name` field instead of `bind`/`connect`.
+
+The `transport` tag is load-bearing, not decorative: `Transport` in
+`crates/router/src/config.rs` is a `#[serde(tag = "transport")]` enum rather
+than an untagged one specifically because NDI's and OMT's `Sender { name }`
+shapes are byte-for-byte identical (`{"mode": "sender", "name": "..."}`) —
+untagged resolution can't tell those two apart by content alone, it would
+silently always pick whichever variant is declared first in the enum. The
+same tagging applies to the runtime REST API's `EndpointRequest` in
+`crates/router/src/management.rs`.
 
 Optionally, a top-level `[state]` section with a `path` enables persisting
 routing changes to disk: every time a route changes, the full output ->
@@ -167,11 +210,12 @@ possible one. `crates/router/src/management.rs` exposes:
 
 ```
 GET    /api/manage/sources              -> [{ "id": "cam1", "kind": "srt" }, ...]
-POST   /api/manage/sources               { "id": "cam3", "mode": "listener", "bind": "0.0.0.0:5003" }
+POST   /api/manage/sources               { "id": "cam3", "transport": "srt", "mode": "listener", "bind": "0.0.0.0:5003" }
 DELETE /api/manage/sources/:id
 GET    /api/manage/outputs              -> [{ "id": "program", "kind": "srt" }, ...]
-POST   /api/manage/outputs               { "id": "aux", "mode": "caller", "connect": "203.0.113.10:6000", "default_source": "cam1" }
+POST   /api/manage/outputs               { "id": "aux", "transport": "srt", "mode": "caller", "connect": "203.0.113.10:6000", "default_source": "cam1" }
 DELETE /api/manage/outputs/:id
+GET    /api/manage/transports           -> ["srt", "ndi", "omt"]   (whichever Cargo features are on)
 ```
 
 `POST` is rejected with `409 Conflict` if the id already exists (checked
@@ -182,9 +226,11 @@ successful `DELETE` calls the entry's `CancellationToken` (which stops its
 the bound socket, confirmed with `lsof` during testing, not assumed) and
 then `Crosspoint::deregister_source`/`deregister_output`.
 
-SRT-only today: the request bodies above are SRT endpoint shapes
-(`SrtEndpointRequest` in `management.rs`), and `POST` always spawns via
-`srt_io::spawn_input`/`spawn_output`. The web UI's add-source/add-destination
-forms show NDI/Scaler/Media player as disabled options in the transport
-dropdown for this reason — `ndi-io` is real and tested (see above) but
-`management.rs` doesn't call into it yet.
+`POST` bodies are dispatched by their `transport` tag
+(`EndpointRequest` in `management.rs`, `#[serde(tag = "transport")]`) to
+`srt_io::`, `ndi_io::`, or `omt_io::spawn_input`/`spawn_output` — whichever
+of `ndi`/`omt` are compiled in via Cargo feature. `GET
+/api/manage/transports` reports which ones the running binary actually
+supports; the web UI calls it on load and only un-disables the matching
+`<option>`s in the transport dropdown (Scaler/Media player stay disabled —
+Phase 2, not built yet).

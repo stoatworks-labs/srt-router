@@ -48,16 +48,16 @@ trusted operations network, the same trust model as a hardware router's
 control port.
 
 **Transports beyond SRT:** `crates/ndi-io` is a real, tested NDI transport
-(see [Status](#status)), usable behind an opt-in `ndi` Cargo feature
-(`cargo run --features ndi`) from both the TOML config and the runtime
-add-source/add-destination REST API. The web UI still lists NDI as a
-disabled, config-only option — enabling it live from the UI is the remaining
-step. `crates/omt-io` is the same idea for
+and `crates/omt-io` is the same idea for
 [OMT](https://openmediatransport.org/) — a genuinely open, MIT-licensed
-alternative to NDI — implemented and tested via hand-written FFI against the
-real SDK (requires `OMT_LIB_DIR`, no bindgen). It is not yet wired into the
-router binary's config/API/UI the way NDI is; that's the next step (see
-[docs/roadmap.md](docs/roadmap.md)).
+alternative to NDI — implemented via hand-written FFI against the real SDK
+(requires `OMT_LIB_DIR`, no bindgen). Both are fully wired into the router:
+usable from the TOML config **and** the runtime add-source/add-destination
+REST API **and** the web UI's Add source/Add destination menus, behind their
+own opt-in Cargo features (`cargo run --features ndi`, `--features omt`, or
+both together). Every input/output entry — TOML or REST — now needs an
+explicit `transport = "srt" | "ndi" | "omt"` tag; see
+[config/example.toml](config/example.toml).
 
 ## Status
 
@@ -86,21 +86,28 @@ Working:
 - `crates/ndi-io`: a real NDI transport using
   [grafton-ndi](https://github.com/GrantSparks/grafton-ndi) (Apache-2.0)
   against the actual NDI SDK, with its own integration test driving a real
-  NDI sender and receiver against it, consistently passing. Usable from
-  `srtrouter`'s TOML config **and** the runtime add/remove REST API behind an
-  opt-in `ndi` Cargo feature (`cargo run --features ndi`); the web UI still
-  lists NDI as a disabled, config-only option, see [What it does](#what-it-does).
+  NDI sender and receiver against it, consistently passing. Fully wired into
+  `srtrouter`'s TOML config, the runtime add/remove REST API, **and** the web
+  UI's Add source/Add destination menus, behind an opt-in `ndi` Cargo feature
+  (`cargo run --features ndi`).
 - `crates/omt-io`: a real, tested [OMT](https://openmediatransport.org/)
   transport via hand-written FFI against the OMT SDK (`OMT_LIB_DIR`, no
-  bindgen), with its own relay integration test — implemented as a transport
-  crate but not yet wired into the router's config/API/UI (that's next).
+  bindgen), with its own relay integration test. Wired in exactly the same
+  way as NDI — TOML config, REST API, web UI menus — behind an opt-in `omt`
+  Cargo feature (`cargo run --features omt`). Both features can be enabled
+  together (`--features ndi,omt`); an explicit `transport` tag on every
+  input/output disambiguates them even where their endpoint shapes are
+  otherwise identical (NDI's and OMT's `Sender { name }`, in particular —
+  see [docs/roadmap.md](docs/roadmap.md) for why that mattered).
 - CI (GitHub Actions) runs `fmt --check`, `clippy -D warnings`, and the full
   test suite on every push/PR — SRT-only (`ndi-io`/`omt-io` need real
   SDKs CI can't install, so they're real workspace members but excluded
   from `default-members`, see [docs/architecture.md](docs/architecture.md)).
-- Verified locally, not just compiled: `cargo test` passes, including
-  integration tests (`crates/srt-io/tests/relay.rs`,
-  `crates/ndi-io/tests/relay.rs`) that relay real protocol traffic
+- Verified locally, not just compiled: `cargo test` passes — default
+  (SRT-only), `--features ndi`, `--features omt`, and `--features ndi,omt`
+  all build and pass clean — including integration tests
+  (`crates/srt-io/tests/relay.rs`, `crates/ndi-io/tests/relay.rs`,
+  `crates/omt-io/tests/relay.rs`) that relay real protocol traffic
   end-to-end through the crosspoint — one SRT test also exercises a **live
   re-route mid-stream over an already-established connection**. Separately
   confirmed by hand: running the binary against `config/example.toml` binds
@@ -108,17 +115,17 @@ Working:
   web UI binds a new one live and removing it frees the port (also via
   `lsof`), the REST API and a real browser click both drive live crosspoint
   changes, the websocket push updates the grid with no client-side polling,
-  and a persisted route survives a real process restart.
+  a persisted route survives a real process restart, and adding an OMT
+  source/destination through the running web UI produces the correct
+  `omt`-badged rows on the grid.
 
-**Not yet done:** no test against a real third-party SRT/NDI encoder or
+**Not yet done:** no test against a real third-party SRT/NDI/OMT encoder or
 decoder, or over a real (non-loopback) network path — only local testing so
-far, still the main open gap. Also missing: NDI enabled live from the web UI
-(it works today from the TOML config and the REST API), OMT wired into the
-router (the transport crate is implemented and tested, just not yet in the
-router's config/API/UI), special-purpose sources (stills/media player/scaler
-— the add-source menu shows them as disabled options), auth on the web
-UI/API, external control API/Companion integration. See
-[docs/roadmap.md](docs/roadmap.md) for the full phased plan.
+far, still the main open gap. Also missing: special-purpose sources
+(stills/media player/scaler — the add-source menu shows them as disabled
+options), auth on the web UI/API, external control API/Companion
+integration. See [docs/roadmap.md](docs/roadmap.md) for the full phased
+plan.
 
 ## Quick start
 
@@ -198,9 +205,8 @@ a CA (`signtool sign`) on Windows.
 
 Full phased plan in [docs/roadmap.md](docs/roadmap.md). Main open items:
 
-- [ ] **Real-world testing** — against a third-party SRT/NDI encoder/decoder and over a real (non-loopback) network path; the main open gap.
-- [ ] **NDI live in the web UI** — already usable from the TOML config and the runtime REST API (behind the `ndi` feature); the web UI still lists it as a disabled, config-only option.
-- [ ] **OMT wired into the router** — `crates/omt-io` is implemented and tested; wire it into the router's config/API/UI the way NDI is.
+- [ ] **Real-world testing** — against a third-party SRT/NDI/OMT encoder/decoder and over a real (non-loopback) network path; the main open gap.
+- [x] **NDI and OMT live in the web UI, config, and REST API** — both fully wired behind their own opt-in Cargo features (`ndi`, `omt`), disambiguated by an explicit `transport` tag per input/output.
 - [ ] **Special-purpose sources** — stills, local media player, scaler tap (shown as disabled options in the add-source menu today).
 - [ ] **Auth/TLS** on the web UI/API.
 - [ ] **External control API / Bitfocus Companion** integration.

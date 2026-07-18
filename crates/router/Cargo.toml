@@ -12,6 +12,7 @@ path = "src/main.rs"
 crosspoint-core = { path = "../core" }
 srt-io = { path = "../srt-io" }
 ndi-io = { path = "../ndi-io", optional = true }
+omt-io = { path = "../omt-io", optional = true }
 crosspoint-web = { path = "../web" }
 axum = "0.7"
 tokio = { version = "1", features = ["full"] }
@@ -30,3 +31,4 @@ tower = { version = "0.5", features = ["util"] }
 
 [features]
 ndi = ["dep:ndi-io"]
+omt = ["dep:omt-io"]

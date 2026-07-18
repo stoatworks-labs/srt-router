@@ -55,6 +55,12 @@ async fn main() -> Result<()> {
                 let cancel = ndi_io::spawn_input(input.id.clone(), ep, crosspoint.clone());
                 registry.insert_source(input.id, "ndi", cancel);
             }
+            #[cfg(feature = "omt")]
+            config::Transport::Omt(ep) => {
+                tracing::info!(id = %input.id, "starting OMT input");
+                let cancel = omt_io::spawn_input(input.id.clone(), ep, crosspoint.clone());
+                registry.insert_source(input.id, "omt", cancel);
+            }
         }
     }
 
@@ -91,6 +97,13 @@ async fn main() -> Result<()> {
                 let cancel =
                     ndi_io::spawn_output(output.id.clone(), ep, initial_source, crosspoint.clone());
                 registry.insert_output(output.id, "ndi", cancel);
+            }
+            #[cfg(feature = "omt")]
+            config::Transport::Omt(ep) => {
+                tracing::info!(id = %output.id, source = %initial_source, "starting OMT output");
+                let cancel =
+                    omt_io::spawn_output(output.id.clone(), ep, initial_source, crosspoint.clone());
+                registry.insert_output(output.id, "omt", cancel);
             }
         }
     }

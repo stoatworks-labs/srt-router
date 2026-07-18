@@ -2,17 +2,27 @@ use std::path::PathBuf;
 
 use serde::Deserialize;
 
-/// Which transport an input/output uses. Untagged: `srt_io::Endpoint`'s
-/// `mode` is `listener`/`caller` and `ndi_io::Endpoint`'s is
-/// `receiver`/`sender` — disjoint, so serde picks the right variant from
-/// the `mode` value alone with no explicit `transport =` field needed.
-/// Existing SRT-only config files keep working unchanged.
+/// Which transport an input/output uses. Explicitly tagged by
+/// `transport = "srt" | "ndi" | "omt"` — every `[[inputs]]`/`[[outputs]]`
+/// entry must set it.
+///
+/// This used to be an untagged enum that picked SRT vs NDI implicitly from
+/// their disjoint `mode` values (`listener`/`caller` vs `receiver`/
+/// `sender`), so existing configs needed no `transport =` field. That trick
+/// stopped being safe once OMT joined: OMT's `Endpoint` also uses
+/// `receiver`/`sender`, and its `Sender` variant is shape-identical to
+/// NDI's (`{mode: "sender", name: "..."}`) — untagged resolution can't
+/// tell those apart by content, it would silently always pick whichever
+/// variant is declared first. An explicit tag is unambiguous regardless of
+/// how many transports share `mode` values with each other.
 #[derive(Deserialize)]
-#[serde(untagged)]
+#[serde(tag = "transport", rename_all = "lowercase")]
 pub enum Transport {
     Srt(srt_io::Endpoint),
     #[cfg(feature = "ndi")]
     Ndi(ndi_io::Endpoint),
+    #[cfg(feature = "omt")]
+    Omt(omt_io::Endpoint),
 }
 
 #[derive(Deserialize)]

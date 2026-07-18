@@ -91,24 +91,53 @@
       against `spawn_input`/`spawn_output`, consistently passing (~2.1s,
       3/3 runs). Every lesson from `ndi-io`'s test — continuous-framerate
       sender thread, `rt.shutdown_background()` — was applied from the
-      start here rather than re-discovered. Not yet wired into
-      `crates/router`'s config/management API/web UI yet.
-      **Important constraint found while scoping that**: `config::Transport`
-      and `management::EndpointRequest` disambiguate SRT from NDI via
-      serde's `untagged` enum trying each variant until one's required
-      fields match — this works today because SRT's `mode` values
-      (`listener`/`caller`) are disjoint from NDI's (`receiver`/`sender`).
-      OMT's `Endpoint` also uses `receiver`/`sender`, **and** its `Sender`
-      variant is shape-identical to NDI's (`{mode: "sender", name: "..."}`)
-      — untagged resolution can't tell them apart by content, it would
-      silently always pick whichever variant is listed first in the enum,
-      misrouting one transport's config as the other whenever both `ndi`
-      and `omt` features are ever enabled together. Wiring OMT into the
-      router needs this resolved first (most likely: switch to an explicit
-      `transport = "srt" | "ndi" | "omt"` tag now that there's a real
-      three-way ambiguity, rather than extending the implicit-from-`mode`
-      trick further) — not done in this pass specifically to avoid
-      shipping that footgun under time pressure.
+      start here rather than re-discovered.
+      **Important constraint found while scoping the router wiring**:
+      `config::Transport` and `management::EndpointRequest` disambiguated
+      SRT from NDI via serde's `untagged` enum trying each variant until
+      one's required fields match — this worked because SRT's `mode`
+      values (`listener`/`caller`) are disjoint from NDI's
+      (`receiver`/`sender`). OMT's `Endpoint` also uses `receiver`/`sender`,
+      **and** its `Sender` variant is shape-identical to NDI's
+      (`{mode: "sender", name: "..."}`) — untagged resolution can't tell
+      them apart by content, it would silently always pick whichever
+      variant is listed first in the enum, misrouting one transport's
+      config as the other whenever both `ndi` and `omt` features are
+      enabled together.
+- [x] **OMT wired into the router** — resolved the constraint above by
+      switching both `config::Transport` and `management::EndpointRequest`
+      from `#[serde(untagged)]` to `#[serde(tag = "transport", rename_all =
+      "lowercase")]`: every `[[inputs]]`/`[[outputs]]` entry and every
+      `POST /api/manage/sources|outputs` body now names an explicit
+      `transport = "srt" | "ndi" | "omt"`. Internally-tagged enums nest
+      correctly inside `#[serde(flatten)]` fields and can themselves wrap
+      another internally-tagged enum (SRT's own `mode`-tagged `Endpoint`),
+      so this cost no expressiveness. `omt` is a new opt-in Cargo feature
+      (`--features omt`, or `--features ndi,omt` together), wired into
+      `main.rs`/`management.rs`/`available_transports()` the same way `ndi`
+      is, and the web UI's transport dropdown now offers OMT (disabled
+      until `GET /api/manage/transports` confirms the running binary
+      supports it, same pattern as NDI). Added a regression test,
+      `ndi_and_omt_sender_requests_are_not_confused_with_each_other`, that
+      posts an NDI sender and an OMT sender with the same `name` and
+      asserts each is dispatched to its own transport — passes, proving the
+      tag actually resolves the collision rather than just moving it.
+      Verified for real: default (SRT-only), `--features ndi`, `--features
+      omt`, and `--features ndi,omt` all build and `cargo test` clean; a
+      running `--features ndi,omt` binary correctly reports
+      `["srt","ndi","omt"]` from `/api/manage/transports`, and adding an
+      OMT source/destination through the actual browser UI produces the
+      correct `omt`-badged grid rows with the route live.
+      Separately hit and fixed a linking issue while verifying this without
+      `DYLD_LIBRARY_PATH` set: `omt-io`'s own `build.rs` can only rpath its
+      *own* test binaries (Cargo's unsuffixed `cargo:rustc-link-arg` never
+      propagates to a dependent package's binary, and the suffixed
+      `-bins` variant turned out to require the *emitting* package itself
+      to have a `[[bin]]` target — it errors otherwise, which a lib-only
+      crate like `omt-io` never has). Fixed by giving `crates/router` its
+      own `build.rs` that emits the same rpath arg again, scoped to
+      `srtrouter`'s actual `[[bin]]` target, whenever the `omt` feature and
+      `OMT_LIB_DIR` are both set.
 
 ## Phase 2 — special-purpose sources
 

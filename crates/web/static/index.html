@@ -91,7 +91,8 @@
         <input name="entry_id" placeholder="id, e.g. cam3" required>
         <select name="transport">
           <option value="srt">SRT</option>
-          <option value="ndi" disabled>NDI (config-only for now, add via TOML — see roadmap)</option>
+          <option value="ndi" disabled>NDI (router not built with --features ndi)</option>
+          <option value="omt" disabled>OMT (router not built with --features omt)</option>
           <option value="scaler" disabled>Scaler (Phase 2 — not built yet)</option>
           <option value="media-player" disabled>Media player (Phase 2 — not built yet)</option>
         </select>
@@ -121,7 +122,8 @@
         <input name="entry_id" placeholder="id, e.g. aux" required>
         <select name="transport">
           <option value="srt">SRT</option>
-          <option value="ndi" disabled>NDI (config-only for now, add via TOML — see roadmap)</option>
+          <option value="ndi" disabled>NDI (router not built with --features ndi)</option>
+          <option value="omt" disabled>OMT (router not built with --features omt)</option>
           <option value="scaler" disabled>Scaler (Phase 2 — not built yet)</option>
           <option value="media-player" disabled>Media player (Phase 2 — not built yet)</option>
         </select>
@@ -308,6 +310,20 @@ function updateFormForTransport(form) {
     return;
   }
 
+  if (transport === 'omt') {
+    modeSelect.innerHTML = isSource
+      ? '<option value="receiver">receiver — discover a named OMT source</option>'
+      : '<option value="sender">sender — advertise a named OMT output</option>';
+    if (isSource) {
+      hint.textContent = 'Connects to the first OMT source whose discovery address contains this text.';
+      addressInput.placeholder = 'CAMERA-1';
+    } else {
+      hint.textContent = 'Name this router advertises as an OMT output on the network.';
+      addressInput.placeholder = 'Program Output';
+    }
+    return;
+  }
+
   // srt
   if (modeSelect.innerHTML !== SRT_MODE_OPTIONS) {
     modeSelect.innerHTML = SRT_MODE_OPTIONS;
@@ -333,15 +349,16 @@ async function loadAvailableTransports() {
   try {
     const res = await fetch('/api/manage/transports');
     const kinds = await res.json();
-    if (kinds.includes('ndi')) {
-      document.querySelectorAll('select[name="transport"] option[value="ndi"]').forEach((opt) => {
+    for (const [kind, label] of [['ndi', 'NDI'], ['omt', 'OMT']]) {
+      if (!kinds.includes(kind)) continue;
+      document.querySelectorAll(`select[name="transport"] option[value="${kind}"]`).forEach((opt) => {
         opt.disabled = false;
-        opt.textContent = 'NDI';
+        opt.textContent = label;
       });
     }
   } catch (e) {
-    // Leave NDI disabled (default state) if the endpoint isn't reachable —
-    // fails safe to "can't tell, so don't offer it".
+    // Leave NDI/OMT disabled (default state) if the endpoint isn't
+    // reachable — fails safe to "can't tell, so don't offer it".
   }
 }
 
@@ -371,9 +388,18 @@ function endpointFields(data) {
   const mode = data.get('mode');
   const address = data.get('address');
   if (transport === 'ndi') {
-    return mode === 'receiver' ? { mode, source_name: address } : { mode, name: address };
+    return mode === 'receiver'
+      ? { transport, mode, source_name: address }
+      : { transport, mode, name: address };
   }
-  return mode === 'listener' ? { mode, bind: address } : { mode, connect: address };
+  if (transport === 'omt') {
+    return mode === 'receiver'
+      ? { transport, mode, address }
+      : { transport, mode, name: address };
+  }
+  return mode === 'listener'
+    ? { transport, mode, bind: address }
+    : { transport, mode, connect: address };
 }
 
 document.getElementById('add-source-form').addEventListener('submit', (ev) => {

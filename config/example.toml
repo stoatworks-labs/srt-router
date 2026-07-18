@@ -1,11 +1,15 @@
 # Example srtrouter configuration.
 #
-# Every input and output is one SRT endpoint, in either "listener" mode
-# (this router waits for the far end to connect) or "caller" mode (this
-# router dials out). Mix and match freely — a common setup is encoders
-# calling *in* to fixed input ports, and decoders/downstream systems
-# listening for this router to call *out* to them, but any combination
-# works.
+# Every input and output names a `transport` ("srt", "ndi", or "omt" —
+# the latter two only take effect when the router is built with the
+# matching Cargo feature) plus that transport's own `mode`. SRT's modes are
+# "listener" (this router waits for the far end to connect) or "caller"
+# (this router dials out); NDI/OMT's are "receiver" or "sender". Mix
+# transports and modes freely within inputs/outputs — a common SRT setup is
+# encoders calling *in* to fixed input ports, and decoders/downstream
+# systems listening for this router to call *out* to them, but any
+# combination works, and an NDI/OMT source can feed an SRT output or vice
+# versa exactly as easily as staying within one transport.
 
 [web]
 # Local web UI + REST API for the crosspoint grid.
@@ -20,27 +24,48 @@ path = "state/routes.json"
 
 [[inputs]]
 id = "cam1"
+transport = "srt"
 mode = "listener"
 bind = "0.0.0.0:5001"
 
 [[inputs]]
 id = "cam2"
+transport = "srt"
 mode = "listener"
 bind = "0.0.0.0:5002"
 
 [[inputs]]
 id = "remote-feed"
+transport = "srt"
 mode = "caller"
 connect = "203.0.113.10:5000"
 
+# NDI and OMT inputs/outputs look like this (uncomment once the router is
+# built with `--features ndi` / `--features omt`):
+#
+# [[inputs]]
+# id = "ndi-cam"
+# transport = "ndi"
+# mode = "receiver"
+# source_name = "SOME-MACHINE (Camera 1)"
+#
+# [[outputs]]
+# id = "omt-monitor"
+# transport = "omt"
+# mode = "sender"
+# name = "srtrouter Program"
+# default_source = "cam1"
+
 [[outputs]]
 id = "program"
+transport = "srt"
 mode = "listener"
 bind = "0.0.0.0:6001"
 default_source = "cam1"
 
 [[outputs]]
 id = "preview"
+transport = "srt"
 mode = "listener"
 bind = "0.0.0.0:6002"
 default_source = "cam2"
