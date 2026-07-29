@@ -14,21 +14,39 @@ use management::ManageState;
 use registry::Registry;
 
 /// Crosspoint-based SRT router.
-#[derive(Parser)]
+#[derive(Parser, serde::Serialize)]
 #[command(name = "srtrouter")]
 struct Args {
     /// Path to the TOML config file.
     #[arg(short, long, default_value = "config/example.toml")]
     config: std::path::PathBuf,
+
+    /// Write a diagnostics bundle and exit.
+    ///
+    /// Everything needed to investigate a fault in one file: build
+    /// identity, platform, configuration with secrets removed, recent
+    /// logs and any crash reports found.
+    #[arg(long)]
+    collect_diagnostics: bool,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let filter =
-        tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into());
-    tracing_subscriber::fmt().with_env_filter(filter).init();
-
     let args = Args::parse();
+
+    // Before anything that can fail, so a failure during startup is logged
+    // and lands in a crash report like any other.
+    let _diag = diag::init(
+        diag::Options::new("srtrouter", "SRT_ROUTER", env!("CARGO_PKG_VERSION"))
+            .with_default_filter("info")
+            .with_config(&args),
+    )?;
+
+    if args.collect_diagnostics {
+        println!("{}", diag::collect_diagnostics()?.display());
+        return Ok(());
+    }
+
     let raw = std::fs::read_to_string(&args.config)
         .with_context(|| format!("reading config file {}", args.config.display()))?;
     let config: Config = toml::from_str(&raw)

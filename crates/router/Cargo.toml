@@ -9,6 +9,7 @@ name = "srtrouter"
 path = "src/main.rs"
 
 [dependencies]
+diag = { path = "../diag" }
 crosspoint-core = { path = "../core" }
 srt-io = { path = "../srt-io" }
 ndi-io = { path = "../ndi-io", optional = true }
