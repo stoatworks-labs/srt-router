@@ -168,7 +168,7 @@ Prefer not to touch the terminal? A small menu-bar app lets you pick the network
 interface + port, Start/Stop the server, and open the web UI. The `srtrouter`
 server is bundled inside, so it's a single download — nothing to install or wire
 up. Grab the `.dmg` from
-[Releases](https://github.com/allansargeant/srt-router/releases), or see
+[Releases](https://github.com/stoatworks-labs/srt-router/releases), or see
 [launcher/](launcher/) to build it.
 
 <p align="center"><img src="launcher/docs/panel.png" width="300" alt="SRT Router desktop app"></p>

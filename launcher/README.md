@@ -8,7 +8,7 @@ inside the app** — it's a single download, nothing to install or wire up.
 ![panel](docs/panel.png)
 
 Download the `.dmg` from
-[Releases](https://github.com/allansargeant/srt-router/releases).
+[Releases](https://github.com/stoatworks-labs/srt-router/releases).
 
 > **Unsigned build.** On first launch macOS Gatekeeper will block it —
 > right-click the app → **Open** → **Open**, once.
@@ -44,6 +44,6 @@ npm run tauri build           # -> src-tauri/target/release/bundle/{macos,dmg}/
 ```
 
 The panel/tray shell is a copy of the reusable
-[av-launcher](https://github.com/allansargeant/av-launcher); only
+[av-launcher](https://github.com/stoatworks-labs/av-launcher); only
 `src-tauri/launcher.toml` (config + theme), the icon, and the bundled binary
 are app-specific.
