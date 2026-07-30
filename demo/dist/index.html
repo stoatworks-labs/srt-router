@@ -151,6 +151,7 @@
 </div>
 
 <p id="disclaimer">AI-assisted project (built with Claude), reviewed by a human author. See the repo README for current verification status.</p>
+<script src="demo-shim.js" data-fixtures="demo-fixtures.json" data-base="/"></script>
 <script>
 let lastState = { sources: [], outputs: [], routes: {} };
 let sourceKinds = {};
@@ -495,6 +496,5 @@ fetchKinds();
 loadAvailableTransports();
 tick().finally(connectLive);
 </script>
-<script src="demo-shim.js" data-fixtures="demo-fixtures.json" data-base="/"></script>
 </body>
 </html>

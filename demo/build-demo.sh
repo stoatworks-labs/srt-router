@@ -72,10 +72,16 @@ if not re.search(r'<meta\s+charset', html, re.I):
 
 shim = f'<script src="demo-shim.js" data-fixtures="demo-fixtures.json" data-base="{base}"></script>\n'
 if 'demo-shim.js' not in html:
-    # Before the first <script src=...>, or failing that at the end of <body>.
-    match = re.search(r'<script\b[^>]*\bsrc=', html)
+    # Before the app's first <script> of ANY kind, inline or external. An inline
+    # script runs the moment the parser reaches it, so matching only `src=` put
+    # the shim after it and the app called the real fetch() before window.fetch
+    # was ever patched — its requests went to the static host and 404'd.
+    # The </body> fallback is only correct for a document with no scripts at all.
+    match = re.search(r'<script\b', html, re.I)
     if match:
         html = html[:match.start()] + shim + html[match.start():]
+    elif '</head>' in html:
+        html = html.replace('</head>', shim + '</head>')
     else:
         html = html.replace('</body>', shim + '</body>')
 
