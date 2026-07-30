@@ -37,11 +37,12 @@ mkdir -p "$OUT"
 cp -R "$SRC"/. "$OUT"/
 cp "$HERE/demo-shim.js" "$OUT/demo-shim.js"
 cp "$FIXTURES" "$OUT/demo-fixtures.json"
-touch "$OUT/.nojekyll"
 
 # These apps are served from their backend's root, so their markup references
-# /app.js and /style.css absolutely. On Pages they live under /<repo>/, so the
-# absolute paths have to be rewritten, and the shim has to load first.
+# /app.js and /style.css absolutely. That is already right for a Cloudflare
+# Pages project (it serves at the root of its own domain); --base only matters
+# when hosting under a subdirectory, where those paths need rewriting. Either
+# way the shim has to load before the app's own script.
 python3 - "$OUT/index.html" "$BASE" <<'PY'
 import re, sys
 path, base = sys.argv[1], sys.argv[2]
