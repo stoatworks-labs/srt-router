@@ -1,0 +1,57 @@
+# Config used to record the hosted demo (demo/record-demo.sh).
+#
+# A realistic small crosspoint — three cameras, a remote contribution feed, and
+# program/preview outputs — bound to loopback ports so recording can't collide
+# with anything real. No [state] section, so nothing is persisted.
+#
+# Only the SRT transport is used: NDI and OMT need their proprietary SDKs and
+# their own Cargo features, so a recording made with them would misrepresent
+# what a default build does.
+
+[web]
+bind = "127.0.0.1:8098"
+
+[[inputs]]
+id = "cam1"
+transport = "srt"
+mode = "listener"
+bind = "127.0.0.1:15001"
+
+[[inputs]]
+id = "cam2"
+transport = "srt"
+mode = "listener"
+bind = "127.0.0.1:15002"
+
+[[inputs]]
+id = "cam3"
+transport = "srt"
+mode = "listener"
+bind = "127.0.0.1:15003"
+
+[[inputs]]
+id = "remote-feed"
+transport = "srt"
+mode = "caller"
+connect = "203.0.113.10:5000"
+
+[[outputs]]
+id = "program"
+transport = "srt"
+mode = "listener"
+bind = "127.0.0.1:16001"
+default_source = "cam1"
+
+[[outputs]]
+id = "preview"
+transport = "srt"
+mode = "listener"
+bind = "127.0.0.1:16002"
+default_source = "cam2"
+
+[[outputs]]
+id = "stream-encoder"
+transport = "srt"
+mode = "listener"
+bind = "127.0.0.1:16003"
+default_source = "cam1"
