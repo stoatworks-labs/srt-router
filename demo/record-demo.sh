@@ -60,8 +60,7 @@ echo "==> Assembling the site"
 demo/build-demo.sh \
   --src crates/web/static \
   --fixtures demo/demo-fixtures.json \
-  --out demo/dist \
-  --base /srt-router/
+  --out demo/dist
 
 echo
 echo "Preview it exactly as Pages will serve it:"
