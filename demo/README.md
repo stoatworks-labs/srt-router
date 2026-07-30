@@ -2,7 +2,7 @@
 
 The router relays live SRT (and NDI/OMT) streams between endpoints on a network,
 so there is nothing for a page on the public internet to route. What is hosted at
-<https://srt-router.stoatworks-labs.com> is a **click-through demo**: the real,
+<https://srt-router-demo.stoatworks-labs.com> is a **click-through demo**: the real,
 unmodified crosspoint UI, replaying responses recorded from srt-router itself
 running with `config/demo.toml`.
 
