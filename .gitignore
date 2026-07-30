@@ -3,5 +3,3 @@
 *.pdb
 dist-release/
 
-# Hosted-demo build output
-demo/dist/

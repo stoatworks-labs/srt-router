@@ -1,0 +1,505 @@
+{
+  "meta": {
+    "app": "srt-router",
+    "repo": "https://github.com/stoatworks-labs/srt-router",
+    "recordedFrom": "http://127.0.0.1:8098",
+    "note": "Recorded from the real backend running against simulated devices."
+  },
+  "http": {
+    "GET /api/state": {
+      "status": 200,
+      "contentType": "application/json",
+      "body": {
+        "sources": [
+          "remote-feed",
+          "cam3",
+          "cam1",
+          "cam2"
+        ],
+        "outputs": [
+          "stream-encoder",
+          "preview",
+          "program"
+        ],
+        "routes": {
+          "program": "cam1",
+          "preview": "cam2",
+          "stream-encoder": "cam1"
+        }
+      }
+    },
+    "GET /api/manage/sources": {
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "cam1",
+          "kind": "srt"
+        },
+        {
+          "id": "cam2",
+          "kind": "srt"
+        },
+        {
+          "id": "cam3",
+          "kind": "srt"
+        },
+        {
+          "id": "remote-feed",
+          "kind": "srt"
+        }
+      ]
+    },
+    "GET /api/manage/outputs": {
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        {
+          "id": "preview",
+          "kind": "srt"
+        },
+        {
+          "id": "program",
+          "kind": "srt"
+        },
+        {
+          "id": "stream-encoder",
+          "kind": "srt"
+        }
+      ]
+    },
+    "GET /api/manage/transports": {
+      "status": 200,
+      "contentType": "application/json",
+      "body": [
+        "srt",
+        "media"
+      ]
+    }
+  },
+  "ws": [
+    {
+      "url": "/ws",
+      "frames": [
+        {
+          "dt": 3,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"stream-encoder\":\"cam1\",\"program\":\"cam1\"}}"
+        },
+        {
+          "dt": 201,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"cam1\",\"stream-encoder\":\"cam1\",\"preview\":\"cam2\"}}"
+        },
+        {
+          "dt": 201,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"program\":\"cam1\",\"stream-encoder\":\"cam1\"}}"
+        },
+        {
+          "dt": 201,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"program\":\"cam1\",\"preview\":\"cam2\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"stream-encoder\":\"cam1\",\"program\":\"cam1\"}}"
+        },
+        {
+          "dt": 201,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"program\":\"cam1\",\"stream-encoder\":\"cam1\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"preview\":\"cam2\",\"program\":\"cam1\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"cam1\",\"stream-encoder\":\"cam1\",\"preview\":\"cam2\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"program\":\"cam1\",\"preview\":\"cam2\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"stream-encoder\":\"cam1\",\"program\":\"cam1\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"program\":\"cam1\",\"stream-encoder\":\"cam1\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"preview\":\"cam2\",\"program\":\"cam1\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"program\":\"cam1\",\"stream-encoder\":\"cam1\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"stream-encoder\":\"cam1\",\"program\":\"cam1\"}}"
+        },
+        {
+          "dt": 203,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"program\":\"cam1\",\"preview\":\"cam2\"}}"
+        },
+        {
+          "dt": 201,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"program\":\"cam1\",\"stream-encoder\":\"cam1\"}}"
+        },
+        {
+          "dt": 403,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"preview\":\"cam2\",\"program\":\"cam1\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"program\":\"cam1\",\"preview\":\"cam2\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"cam1\",\"stream-encoder\":\"cam1\",\"preview\":\"cam2\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"preview\":\"cam2\",\"program\":\"cam1\"}}"
+        },
+        {
+          "dt": 201,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"stream-encoder\":\"cam1\",\"program\":\"cam1\"}}"
+        },
+        {
+          "dt": 201,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"program\":\"cam1\",\"stream-encoder\":\"cam1\"}}"
+        },
+        {
+          "dt": 404,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"cam1\",\"stream-encoder\":\"cam1\",\"preview\":\"cam2\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"program\":\"cam1\",\"preview\":\"cam2\"}}"
+        },
+        {
+          "dt": 404,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"cam1\",\"stream-encoder\":\"cam1\",\"preview\":\"cam2\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"cam1\",\"preview\":\"cam2\",\"stream-encoder\":\"cam1\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"preview\":\"cam2\",\"program\":\"cam1\"}}"
+        },
+        {
+          "dt": 404,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"cam1\",\"preview\":\"cam2\",\"stream-encoder\":\"cam1\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"stream-encoder\":\"cam1\",\"program\":\"cam1\"}}"
+        },
+        {
+          "dt": 201,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"cam1\",\"stream-encoder\":\"cam1\",\"preview\":\"cam2\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"preview\":\"cam2\",\"program\":\"cam1\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"cam1\",\"stream-encoder\":\"cam1\",\"preview\":\"cam2\"}}"
+        },
+        {
+          "dt": 201,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"program\":\"cam1\",\"stream-encoder\":\"cam1\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"stream-encoder\":\"cam1\",\"program\":\"cam1\"}}"
+        },
+        {
+          "dt": 606,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"preview\":\"cam2\",\"program\":\"cam1\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"program\":\"cam1\",\"preview\":\"cam2\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"cam1\",\"preview\":\"cam2\",\"stream-encoder\":\"cam1\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"program\":\"cam1\",\"preview\":\"cam2\"}}"
+        },
+        {
+          "dt": 606,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"program\":\"cam1\",\"stream-encoder\":\"cam1\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"preview\":\"cam2\",\"program\":\"cam1\"}}"
+        },
+        {
+          "dt": 201,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"program\":\"cam1\",\"stream-encoder\":\"cam1\"}}"
+        },
+        {
+          "dt": 202,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"preview\":\"cam2\",\"program\":\"cam1\"}}"
+        }
+      ]
+    }
+  ],
+  "writes": [
+    {
+      "key": "POST /api/route {\"output\":\"program\",\"source\":\"cam1\"}",
+      "status": 200,
+      "body": {
+        "ok": true
+      },
+      "before": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"preview\":\"cam2\",\"program\":\"cam1\"}}",
+      "wsFrames": [
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"stream-encoder\":\"cam1\",\"program\":\"cam1\"}}"
+        }
+      ]
+    },
+    {
+      "key": "POST /api/route {\"output\":\"program\",\"source\":\"cam2\"}",
+      "status": 200,
+      "body": {
+        "ok": true
+      },
+      "before": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"stream-encoder\":\"cam1\",\"program\":\"cam1\"}}",
+      "wsFrames": [
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"cam2\",\"preview\":\"cam2\",\"stream-encoder\":\"cam1\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"cam2\",\"stream-encoder\":\"cam1\",\"preview\":\"cam2\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"program\":\"cam2\",\"preview\":\"cam2\"}}"
+        }
+      ]
+    },
+    {
+      "key": "POST /api/route {\"output\":\"program\",\"source\":\"cam3\"}",
+      "status": 200,
+      "body": {
+        "ok": true
+      },
+      "before": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"stream-encoder\":\"cam1\",\"program\":\"cam2\"}}",
+      "wsFrames": [
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"preview\":\"cam2\",\"program\":\"cam3\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"cam3\",\"stream-encoder\":\"cam1\",\"preview\":\"cam2\"}}"
+        }
+      ]
+    },
+    {
+      "key": "POST /api/route {\"output\":\"program\",\"source\":\"remote-feed\"}",
+      "status": 200,
+      "body": {
+        "ok": true
+      },
+      "before": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"program\":\"cam3\",\"preview\":\"cam2\"}}",
+      "wsFrames": [
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"program\":\"remote-feed\",\"preview\":\"cam2\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"preview\":\"cam2\",\"program\":\"remote-feed\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"stream-encoder\":\"cam1\",\"program\":\"remote-feed\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"remote-feed\",\"preview\":\"cam2\",\"stream-encoder\":\"cam1\"}}"
+        }
+      ]
+    },
+    {
+      "key": "POST /api/route {\"output\":\"preview\",\"source\":\"cam1\"}",
+      "status": 200,
+      "body": {
+        "ok": true
+      },
+      "before": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"preview\":\"cam2\",\"program\":\"remote-feed\"}}",
+      "wsFrames": [
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam1\",\"program\":\"remote-feed\",\"stream-encoder\":\"cam1\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"preview\":\"cam1\",\"program\":\"remote-feed\"}}"
+        }
+      ]
+    },
+    {
+      "key": "POST /api/route {\"output\":\"preview\",\"source\":\"cam2\"}",
+      "status": 200,
+      "body": {
+        "ok": true
+      },
+      "before": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"remote-feed\",\"preview\":\"cam1\",\"stream-encoder\":\"cam1\"}}",
+      "wsFrames": [
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"preview\":\"cam2\",\"program\":\"remote-feed\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"program\":\"remote-feed\",\"stream-encoder\":\"cam1\"}}"
+        }
+      ]
+    },
+    {
+      "key": "POST /api/route {\"output\":\"preview\",\"source\":\"cam3\"}",
+      "status": 200,
+      "body": {
+        "ok": true
+      },
+      "before": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam2\",\"program\":\"remote-feed\",\"stream-encoder\":\"cam1\"}}",
+      "wsFrames": [
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"cam3\",\"program\":\"remote-feed\",\"stream-encoder\":\"cam1\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"remote-feed\",\"preview\":\"cam3\",\"stream-encoder\":\"cam1\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"preview\":\"cam3\",\"program\":\"remote-feed\"}}"
+        }
+      ]
+    },
+    {
+      "key": "POST /api/route {\"output\":\"preview\",\"source\":\"remote-feed\"}",
+      "status": 200,
+      "body": {
+        "ok": true
+      },
+      "before": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"remote-feed\",\"preview\":\"cam3\",\"stream-encoder\":\"cam1\"}}",
+      "wsFrames": [
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"remote-feed\",\"preview\":\"remote-feed\",\"stream-encoder\":\"cam1\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"program\":\"remote-feed\",\"preview\":\"remote-feed\"}}"
+        }
+      ]
+    },
+    {
+      "key": "POST /api/route {\"output\":\"stream-encoder\",\"source\":\"cam1\"}",
+      "status": 200,
+      "body": {
+        "ok": true
+      },
+      "before": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"remote-feed\",\"stream-encoder\":\"cam1\",\"program\":\"remote-feed\"}}",
+      "wsFrames": [
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam1\",\"preview\":\"remote-feed\",\"program\":\"remote-feed\"}}"
+        }
+      ]
+    },
+    {
+      "key": "POST /api/route {\"output\":\"stream-encoder\",\"source\":\"cam2\"}",
+      "status": 200,
+      "body": {
+        "ok": true
+      },
+      "before": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"remote-feed\",\"program\":\"remote-feed\",\"stream-encoder\":\"cam1\"}}",
+      "wsFrames": [
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"remote-feed\",\"stream-encoder\":\"cam2\",\"preview\":\"remote-feed\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam2\",\"preview\":\"remote-feed\",\"program\":\"remote-feed\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam2\",\"program\":\"remote-feed\",\"preview\":\"remote-feed\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"remote-feed\",\"stream-encoder\":\"cam2\",\"program\":\"remote-feed\"}}"
+        }
+      ]
+    },
+    {
+      "key": "POST /api/route {\"output\":\"stream-encoder\",\"source\":\"cam3\"}",
+      "status": 200,
+      "body": {
+        "ok": true
+      },
+      "before": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam2\",\"preview\":\"remote-feed\",\"program\":\"remote-feed\"}}",
+      "wsFrames": [
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam3\",\"preview\":\"remote-feed\",\"program\":\"remote-feed\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"remote-feed\",\"program\":\"remote-feed\",\"stream-encoder\":\"cam3\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam3\",\"program\":\"remote-feed\",\"preview\":\"remote-feed\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"remote-feed\",\"stream-encoder\":\"cam3\",\"program\":\"remote-feed\"}}"
+        }
+      ]
+    },
+    {
+      "key": "POST /api/route {\"output\":\"stream-encoder\",\"source\":\"remote-feed\"}",
+      "status": 200,
+      "body": {
+        "ok": true
+      },
+      "before": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"cam3\",\"program\":\"remote-feed\",\"preview\":\"remote-feed\"}}",
+      "wsFrames": [
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"remote-feed\",\"program\":\"remote-feed\",\"stream-encoder\":\"remote-feed\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"program\":\"remote-feed\",\"preview\":\"remote-feed\",\"stream-encoder\":\"remote-feed\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"stream-encoder\":\"remote-feed\",\"preview\":\"remote-feed\",\"program\":\"remote-feed\"}}"
+        },
+        {
+          "dt": 0,
+          "data": "{\"sources\":[\"remote-feed\",\"cam3\",\"cam1\",\"cam2\"],\"outputs\":[\"stream-encoder\",\"preview\",\"program\"],\"routes\":{\"preview\":\"remote-feed\",\"program\":\"remote-feed\",\"stream-encoder\":\"remote-feed\"}}"
+        }
+      ]
+    }
+  ]
+}
