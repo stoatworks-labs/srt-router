@@ -168,10 +168,18 @@ else
   rl_skip "Windows server builds (cargo install cargo-xwin)"
 fi
 
-# A macOS installer so the CLI lands on PATH without hand-copying.
+# macOS gets both shapes for the command-line payload: a .pkg that puts the
+# binaries on PATH, and a .dmg for people who would rather mount and copy.
+# There is no .app here — these are console tools — so the .dmg holds the plain
+# payload rather than a bundle.
 rr_stage "$out/.stage-srv-mac" aarch64-apple-darwin
 rl_pkg macos-aarch64-cli "$out/.stage-srv-mac" --cli
+rl_dmg macos-aarch64-cli "$out/.stage-srv-mac"
 rm -rf "$out/.stage-srv-mac"
+rr_stage "$out/.stage-srv-mac-x64" x86_64-apple-darwin
+rl_pkg macos-x86_64-cli "$out/.stage-srv-mac-x64" --cli
+rl_dmg macos-x86_64-cli "$out/.stage-srv-mac-x64"
+rm -rf "$out/.stage-srv-mac-x64"
 
 # ----------------------------------------------------------- Tauri launcher --
 
@@ -247,13 +255,23 @@ fi
 
 rl_summary
 
-cat <<NOTE
+if [[ -n "$RR_APP_NAME" ]]; then
+  cat <<NOTE
 
     Nothing here is code-signed. On macOS users must run
-      xattr -dr com.apple.quarantine "/Applications/${RR_APP_NAME:-$RR_NAME}"
+      xattr -dr com.apple.quarantine "/Applications/${RR_APP_NAME}"
     after installing — approving the outer app does not unquarantine nested
     helper binaries, and Gatekeeper SIGKILLs those silently.
 NOTE
+else
+  cat <<NOTE
+
+    Nothing here is code-signed. These are command-line tools: the .pkg
+    installs them under /usr/local/${RR_SLUG} and links them into
+    /usr/local/bin. If macOS refuses to run one, clear the quarantine flag:
+      xattr -dr com.apple.quarantine /usr/local/${RR_SLUG}
+NOTE
+fi
 
 if (( upload )); then
   echo "==> tagging ${tag}"

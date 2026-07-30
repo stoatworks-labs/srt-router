@@ -24,6 +24,13 @@ SDI/HDMI.
 verifying the routing/persistence/websocket/add-remove behavior described in
 [Status](#status) below.*
 
+**Try the crosspoint: <https://stoatworks-labs.com/srt-router/>** — the real UI,
+in your browser, and the grid genuinely switches. Every switch replays the
+router's own recorded response to that exact crosspoint change. Nothing there is
+relaying a stream and nothing is saved; the router has to be on the network with
+your SRT endpoints to do anything real. See [demo/README.md](demo/README.md) for
+how it's built.
+
 ## What it does
 
 By default, routing is a **pure relay**: the crosspoint moves opaque payload
