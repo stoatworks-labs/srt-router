@@ -17,6 +17,11 @@ SDI/HDMI.
 
 ![srt-router architecture: SRT inputs feeding crosspoint-core's per-source broadcast channels, a routing table mapping each output to one source, out to SRT outputs](docs/diagrams/architecture.svg)
 
+[![Watch it running — 45 seconds](docs/video-thumb.png)](https://www.youtube.com/watch?v=Jp6JLf51UgY)
+
+*A 45-second tour, driven over the router's own REST API against
+[config/example.toml](config/example.toml) — the same config as the screenshot below.*
+
 <img src="docs/screenshots/crosspoint-grid.png" alt="The crosspoint web UI: a grid of outputs (program, preview) by sources (cam1, cam2, remote-feed), each labeled with its transport kind and a remove control, plus Add source / Add destination buttons below" width="560">
 
 *The web UI above is a real screenshot of the router running locally against
