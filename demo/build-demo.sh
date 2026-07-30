@@ -49,8 +49,16 @@ html = open(path, encoding='utf-8').read()
 
 if base != '/':
     # base is '/repo/' — put the whole thing back, not just the tail, or the
-    # rewritten path becomes relative and resolves under itself.
-    html = re.sub(r'((?:src|href)=")/(?!/)', lambda m: m.group(1) + base, html)
+    # rewritten path becomes relative and resolves under itself. Skip anything
+    # already under the base: a bundler told to build for a subdirectory has
+    # done this already, and rewriting again nests it under itself.
+    def rebase(match):
+        prefix, path = match.group(1), match.group(2)
+        if path.startswith(base):
+            return match.group(0)
+        return prefix + base + path.lstrip('/')
+
+    html = re.sub(r'((?:src|href)=")(/(?!/)[^"]*)', rebase, html)
 
 # Served straight from disk, these files no longer get the backend's
 # `Content-Type: text/html; charset=utf-8` header, so the encoding has to be
@@ -61,7 +69,7 @@ if base != '/':
 if not re.search(r'<meta\s+charset', html, re.I):
     html = '<meta charset="utf-8">\n' + html
 
-shim = '<script src="demo-shim.js" data-fixtures="demo-fixtures.json"></script>\n'
+shim = f'<script src="demo-shim.js" data-fixtures="demo-fixtures.json" data-base="{base}"></script>\n'
 if 'demo-shim.js' not in html:
     # Before the first <script src=...>, or failing that at the end of <body>.
     match = re.search(r'<script\b[^>]*\bsrc=', html)

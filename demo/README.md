@@ -2,7 +2,7 @@
 
 The router relays live SRT (and NDI/OMT) streams between endpoints on a network,
 so there is nothing for a page on the public internet to route. What is hosted at
-<https://stoatworks-labs.com/srt-router/> is a **click-through demo**: the real,
+<https://srt-router.stoatworks-labs.com> is a **click-through demo**: the real,
 unmodified crosspoint UI, replaying responses recorded from srt-router itself
 running with `config/demo.toml`.
 
@@ -36,9 +36,9 @@ a row behave the way the real router behaves.
 | `record-fixtures.mjs` | Records a running backend's responses and writes (vendored) |
 | `demo-shim.js` | Replays the recording in the page over `fetch`/`WebSocket` (vendored) |
 | `build-demo.sh` | Assembles `crates/web/static` + shim + fixtures into a site (vendored) |
-| `serve-demo.py` | Serves it with GitHub Pages' headers, for local checking (vendored) |
-| `deploy-pages.sh` | Pushes the built site to `gh-pages` (vendored) |
+| `serve-demo.py` | Serves it with a static host's headers, for local checking (vendored) |
 | `demo-fixtures.json` | The recording. Regenerate it; don't hand-edit it |
+| `dist/` | **Committed build output** — what Cloudflare Pages serves |
 
 The vendored files come from `stoatworks-backend/pages-demo`. Fix them there and
 copy out, or the copies drift.
@@ -47,13 +47,17 @@ copy out, or the copies drift.
 
 ```bash
 demo/record-demo.sh                                       # record + assemble
-demo/serve-demo.py --dir demo/dist --base /srt-router/    # check it locally first
-demo/deploy-pages.sh --dist demo/dist --label "srt-router demo"
+demo/serve-demo.py --dir demo/dist    # check it locally first
+git add demo/dist && git commit && git push   # Cloudflare publishes it
 ```
 
 `config/demo.toml` deliberately uses **SRT only**. NDI and OMT need their
 proprietary SDKs and their own Cargo features, so recording with them would show
 a default build doing something it can't.
+
+Cloudflare Pages publishes `demo/dist` from the repo with **no build command**.
+It has to be committed: assembling the demo means running the app against its
+mock devices and capturing what it says, which a build container can't do.
 
 ## Rules the demo has to keep
 
