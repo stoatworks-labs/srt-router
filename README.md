@@ -191,51 +191,26 @@ See [docs/architecture.md](docs/architecture.md) for the source/output/
 crosspoint model and how the relay-vs-generated source distinction is meant
 to extend later without changing the core engine.
 
-## Unsigned builds — macOS Gatekeeper & Windows SmartScreen
+## Unsigned builds — Gatekeeper, SmartScreen & Defender Firewall
 
-The release binaries are **not code-signed or notarized** — that needs paid
-Apple / Windows developer certificates this project doesn't carry. The binaries
-are safe to run; the OS just can't verify a publisher, so it warns you the first
-time. Here's how to get past that, and how to sign them yourself if you'd rather.
+The release binaries are **not code-signed or notarized** — that needs paid Apple
+and Microsoft developer certificates this project doesn't carry. The downloads are
+fine; the OS just can't identify the publisher, so it warns you the first time.
 
-### macOS
+- **macOS** — *"cannot be opened because the developer cannot be verified"*.
+  Right-click the app → **Open** → **Open**, or clear the flag:
+  `xattr -dr com.apple.quarantine "/Applications/SRT Router.app"`
+- **Windows** — SmartScreen shows *"Windows protected your PC"* →
+  **More info** → **Run anyway**.
+- **Windows Defender Firewall** — first launch pops *"Allow SRT Router to communicate on
+  these networks"*. Tick **Private** (and **Domain** on a managed network) — SRT Router
+  needs it to serve the web UI on the interface you pick and accept inbound SRT streams.
+  Deny it and the UI won't load from another machine and inbound SRT callers will time
+  out.
+- **Linux** — no signing gate.
 
-These are command-line binaries, so clear the quarantine flag in Terminal. After
-extracting the archive, `cd` into it and run:
-
-```sh
-xattr -dr com.apple.quarantine ./<binary>   # remove the "unverified developer" flag
-chmod +x ./<binary>                          # ensure it's executable
-./<binary> --help
-```
-
-Or run it once, let macOS block it, then go to **System Settings → Privacy &
-Security** and click **Open Anyway**.
-
-### Windows
-
-Running the `.exe` may show **"Windows protected your PC"** (SmartScreen) — click
-**More info → Run anyway**. If you extracted it from a `.zip`, you can clear the
-flag first: right-click the `.exe` → **Properties** → tick **Unblock** → **OK**,
-or in PowerShell `Unblock-File .\<binary>.exe`.
-
-### Linux
-
-No signing gate — just `chmod +x ./<binary>` (or install the `.deb`/`.rpm`).
-
-### Signing it yourself (optional)
-
-On macOS an *ad-hoc* signature stops repeated prompts on your own machine (it is
-**not** notarization — it won't clear Gatekeeper on someone else's Mac):
-
-```sh
-codesign --force --sign - ./<binary>
-```
-
-Clearing the warnings for redistribution needs paid certificates: an **Apple
-Developer Program** membership ($99/yr) + a *Developer ID Application* cert with
-`xcrun notarytool` on macOS, or an **Authenticode** code-signing certificate from
-a CA (`signtool sign`) on Windows.
+Per-artifact steps, self-signing, checksum verification and the Defender Firewall reset
+procedure: **[docs/UNSIGNED.md](docs/UNSIGNED.md)**.
 
 ## Roadmap / TODO
 
