@@ -221,3 +221,15 @@ Full phased plan in [docs/roadmap.md](docs/roadmap.md). Main open items:
 - [x] **Special-purpose sources** — stills, local media player, scaler tap, all built on real `ffmpeg` child processes and live in the web UI's Add source menu, config, and REST API.
 - [ ] **Auth/TLS** on the web UI/API.
 - [ ] **External control API / Bitfocus Companion** integration.
+
+## Trademarks and third-party licences
+
+**NDI® is a registered trademark of Vizrt NDI AB.** See <https://ndi.video>.
+This project is not affiliated with or endorsed by Vizrt.
+
+The NDI runtime is obtained separately under Vizrt's own terms and is not
+redistributed here. NDI Tools are not redistributed either — get them from
+<https://ndi.video/tools>.
+
+H.264, H.265 and AAC are separately licensable formats. The NDI SDK grant does
+not cover them, and the obligation sits with whoever ships a product using them.
