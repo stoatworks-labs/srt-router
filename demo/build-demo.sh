@@ -38,14 +38,22 @@ cp -R "$SRC"/. "$OUT"/
 cp "$HERE/demo-shim.js" "$OUT/demo-shim.js"
 cp "$FIXTURES" "$OUT/demo-fixtures.json"
 
+# The support footer, if the repo has been synced with it. Optional on purpose:
+# an older checkout without the file should still build a demo rather than fail.
+# Its app name and repo URL are read out of the fixtures below, from the same
+# meta the shim's banner uses, so the two can never name different projects.
+if [ -f "$HERE/support-footer.js" ]; then
+  cp "$HERE/support-footer.js" "$OUT/support-footer.js"
+fi
+
 # These apps are served from their backend's root, so their markup references
 # /app.js and /style.css absolutely. That is already right for a Cloudflare
 # Pages project (it serves at the root of its own domain); --base only matters
 # when hosting under a subdirectory, where those paths need rewriting. Either
 # way the shim has to load before the app's own script.
-python3 - "$OUT/index.html" "$BASE" <<'PY'
-import re, sys
-path, base = sys.argv[1], sys.argv[2]
+python3 - "$OUT/index.html" "$BASE" "$OUT" <<'PY'
+import json, os, re, sys
+path, base, out = sys.argv[1], sys.argv[2], sys.argv[3]
 html = open(path, encoding='utf-8').read()
 
 if base != '/':
@@ -84,6 +92,39 @@ if 'demo-shim.js' not in html:
         html = html.replace('</head>', shim + '</head>')
     else:
         html = html.replace('</body>', shim + '</body>')
+
+# The support footer goes LAST, after the app's own scripts — it is in-flow
+# content appended to <body>, and nothing else waits on it. Relative src, like
+# the shim's, so the --base rewrite above does not have to know about it.
+#
+# The app name and repo come from the fixtures' meta rather than new arguments,
+# so the footer and the shim's banner always name the same project. No
+# data-note: these demos are recorded against simulated devices, and every note
+# worth writing ("nothing leaves your browser") is a claim about a real backend.
+footer_js = os.path.join(out, 'support-footer.js')
+if os.path.exists(footer_js) and 'support-footer.js' not in html:
+    meta = {}
+    try:
+        with open(os.path.join(out, 'demo-fixtures.json'), encoding='utf-8') as fh:
+            meta = json.load(fh).get('meta', {}) or {}
+    except (OSError, ValueError) as err:
+        print(f'  warning: could not read fixtures meta for the footer: {err}')
+
+    attrs = ['src="support-footer.js"', 'defer']
+    for name, key in (('data-app', 'app'), ('data-repo', 'repo')):
+        value = meta.get(key)
+        if value:
+            attrs.append(f'{name}="{value}"')
+    footer = '<script ' + ' '.join(attrs) + '></script>\n'
+
+    if '</body>' in html:
+        html = html.replace('</body>', footer + '</body>')
+    else:
+        # Several of these documents have no <body> tag at all — they are
+        # fragments the backend served with the right content type. Appending is
+        # correct there: the parser puts it at the end of the implied body.
+        html = html.rstrip() + '\n' + footer
+    print(f'  injected support-footer.js for {meta.get("app", "the app")}')
 
 open(path, 'w', encoding='utf-8').write(html)
 print(f'  injected demo-shim.js, base={base}')
