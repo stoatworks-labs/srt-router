@@ -36,6 +36,62 @@ relaying a stream and nothing is saved; the router has to be on the network with
 your SRT endpoints to do anything real. See [demo/README.md](demo/README.md) for
 how it's built.
 
+<!-- downloads:start -->
+
+## Download
+
+**[v0.1.3](https://github.com/stoatworks-labs/srt-router/releases/tag/v0.1.3)** — prebuilt for macOS, Windows and Linux. Pick your platform:
+
+<details>
+<summary><b>macOS</b> — Apple Silicon, Intel</summary>
+
+| Build | Download | Size |
+| --- | --- | --- |
+| Apple Silicon · .dmg disk image (app) | [`srt-router-0.1.3-macos-aarch64-app.dmg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-aarch64-app.dmg) | 10 MB |
+| Apple Silicon · .dmg disk image (CLI) | [`srt-router-0.1.3-macos-aarch64-cli.dmg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-aarch64-cli.dmg) | 8.4 MB |
+| Intel · .dmg disk image (app) | [`srt-router-0.1.3-macos-x86_64-app.dmg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-x86_64-app.dmg) | 11 MB |
+| Intel · .dmg disk image (CLI) | [`srt-router-0.1.3-macos-x86_64-cli.dmg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-x86_64-cli.dmg) | 8.4 MB |
+| Apple Silicon · .pkg installer (app) | [`srt-router-0.1.3-macos-aarch64-app.pkg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-aarch64-app.pkg) | 10 MB |
+| Apple Silicon · .pkg installer (CLI) | [`srt-router-0.1.3-macos-aarch64-cli.pkg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-aarch64-cli.pkg) | 7.2 MB |
+| Intel · .pkg installer (app) | [`srt-router-0.1.3-macos-x86_64-app.pkg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-x86_64-app.pkg) | 11 MB |
+| Intel · .pkg installer (CLI) | [`srt-router-0.1.3-macos-x86_64-cli.pkg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-x86_64-cli.pkg) | 7.2 MB |
+| Apple Silicon · .tar.gz archive | [`srt-router-macos-aarch64.tar.gz`](https://github.com/stoatworks-labs/srt-router/releases/latest/download/srt-router-macos-aarch64.tar.gz) | 2.5 MB |
+| Intel · .tar.gz archive | [`srt-router-macos-x86_64.tar.gz`](https://github.com/stoatworks-labs/srt-router/releases/latest/download/srt-router-macos-x86_64.tar.gz) | 2.6 MB |
+
+</details>
+
+<details>
+<summary><b>Windows</b> — x64, ARM64</summary>
+
+| Build | Download | Size |
+| --- | --- | --- |
+| x64 · .exe installer | [`srt-router-0.1.3-windows-x86_64-setup.exe`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-windows-x86_64-setup.exe) | 3.7 MB |
+| ARM64 · .exe installer | [`srt-router-0.1.3-windows-aarch64-setup.exe`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-windows-aarch64-setup.exe) | 1.5 MB |
+| x64 · .zip archive | [`srt-router-windows-x86_64.zip`](https://github.com/stoatworks-labs/srt-router/releases/latest/download/srt-router-windows-x86_64.zip) | 2.2 MB |
+| ARM64 · .zip archive | [`srt-router-windows-aarch64.zip`](https://github.com/stoatworks-labs/srt-router/releases/latest/download/srt-router-windows-aarch64.zip) | 2.1 MB |
+
+</details>
+
+<details>
+<summary><b>Linux</b> — x64, ARM64</summary>
+
+| Build | Download | Size |
+| --- | --- | --- |
+| x64 · .deb package (Debian/Ubuntu) | [`srt-router_0.1.3_amd64.deb`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router_0.1.3_amd64.deb) | 2.9 MB |
+| ARM64 · .deb package (Debian/Ubuntu) | [`srt-router_0.1.3_arm64.deb`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router_0.1.3_arm64.deb) | 3.0 MB |
+| x64 · .rpm package (Fedora/RHEL) | [`srt-router-0.1.3-1.x86_64.rpm`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-1.x86_64.rpm) | 2.9 MB |
+| ARM64 · .rpm package (Fedora/RHEL) | [`srt-router-0.1.3-1.aarch64.rpm`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-1.aarch64.rpm) | 3.0 MB |
+| x64 · .tar.gz archive | [`srt-router-linux-x86_64.tar.gz`](https://github.com/stoatworks-labs/srt-router/releases/latest/download/srt-router-linux-x86_64.tar.gz) | 2.8 MB |
+| ARM64 · .tar.gz archive | [`srt-router-linux-aarch64.tar.gz`](https://github.com/stoatworks-labs/srt-router/releases/latest/download/srt-router-linux-aarch64.tar.gz) | 2.8 MB |
+
+</details>
+
+All builds, checksums and release notes: [github.com/stoatworks-labs/srt-router/releases](https://github.com/stoatworks-labs/srt-router/releases).
+
+These builds are unsigned, so macOS and Windows each warn once on first launch — see [Unsigned builds — Gatekeeper, SmartScreen & Defender Firewall](#unsigned-builds--gatekeeper-smartscreen--defender-firewall) for the one-time fix.
+
+<!-- downloads:end -->
+
 ## What it does
 
 By default, routing is a **pure relay**: the crosspoint moves opaque payload
