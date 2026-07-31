@@ -4,9 +4,11 @@
 //! raw relayed byte stream — NDI has no single opaque payload the way SRT's
 //! MPEG-TS does, each frame is a distinct, structured thing.
 //!
-//! Requires the real NDI SDK to build (this crate's `grafton-ndi` dependency
-//! runs `bindgen` against the installed SDK headers) — see the workspace
-//! README for how this feature is gated.
+//! Needs no NDI SDK to build: [`sys`] loads the runtime with `dlopen` at run
+//! time. A machine with no runtime still builds and runs the router — only an
+//! NDI endpoint fails, with the download URL in the message. This replaced
+//! `grafton-ndi`, whose build-time link made the crate unbuildable without the
+//! proprietary SDK and so kept NDI out of every cross-compiled release.
 //!
 //! NDI's own blocking capture/send calls run on dedicated blocking threads
 //! (`tokio::task::spawn_blocking`) rather than mixed into the async
@@ -17,18 +19,18 @@
 //! primitive for it either.
 
 mod envelope;
+pub mod sys;
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use crosspoint_core::Crosspoint;
-use grafton_ndi::{
-    Finder, FinderOptions, Receiver, ReceiverOptions, Sender, SenderOptions, Source, NDI,
-};
 use serde::Deserialize;
 use tokio::sync::{broadcast, watch};
 use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
+
+use crate::sys::{Finder, Frame, Receiver, Sender, Source};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "mode", rename_all = "lowercase")]
@@ -44,29 +46,16 @@ pub enum Endpoint {
 const RETRY_DELAY: Duration = Duration::from_secs(2);
 const SOURCE_DISCOVERY_POLL: Duration = Duration::from_secs(5);
 const OUTPUT_ROUTE_POLL: Duration = Duration::from_millis(5);
-
-/// Where to send an operator whose runtime is missing or unusable. The SDK
-/// publishes this as `NDILIB_REDIST_URL`, but `grafton-ndi` does not re-export
-/// it and the value is platform-specific — on Linux it is empty, because no
-/// one-click redistributable exists there, so point at the SDK download instead
-/// of printing nothing.
-const NDI_REDIST_URL: &str = if cfg!(target_os = "macos") {
-    "http://ndi.link/NDIRedistV6Apple"
-} else if cfg!(target_os = "windows") {
-    "http://ndi.link/NDIRedistV6"
-} else {
-    "https://ndi.video/for-developers/ndi-sdk/"
-};
+/// How long one `recv_capture_v3` waits. Short enough that cancellation is
+/// noticed promptly, long enough not to spin.
+const CAPTURE_TIMEOUT: Duration = Duration::from_millis(200);
 
 #[derive(Debug, thiserror::Error)]
 enum NdiIoError {
-    /// Separate from [`NdiIoError::Ndi`] because this is the one failure an
-    /// operator can actually fix, and the fix is a download. Everything else is
-    /// a stream-level fault where a URL would just be noise.
-    #[error("the NDI runtime failed to initialise ({0}) — install or reinstall it from {NDI_REDIST_URL}")]
-    Init(grafton_ndi::Error),
+    /// Every runtime-level failure, including "not installed" — `sys` puts the
+    /// download URL in that one's message, so nothing is needed here.
     #[error(transparent)]
-    Ndi(#[from] grafton_ndi::Error),
+    Ndi(#[from] sys::SysError),
     #[error("NDI source disconnected")]
     Disconnected,
 }
@@ -141,18 +130,21 @@ pub fn spawn_output(
 /// cancellation keeps the caller's "reconnect on real errors" retry loop
 /// from treating a clean shutdown as a failure worth logging a warning for.
 fn find_source_by_name(
-    finder: &Finder,
+    finder: &mut Finder,
     wanted: &str,
     cancel: &CancellationToken,
-) -> Result<Option<Source>, NdiIoError> {
+) -> Option<Source> {
     while !cancel.is_cancelled() {
-        let sources = finder.current_sources()?;
-        if let Some(found) = sources.iter().find(|s| s.name.contains(wanted)) {
-            return Ok(Some(found.clone()));
+        if let Some(found) = finder
+            .current_sources()
+            .into_iter()
+            .find(|s| s.name.contains(wanted))
+        {
+            return Some(found);
         }
-        finder.wait_for_sources(SOURCE_DISCOVERY_POLL)?;
+        finder.wait_for_sources(SOURCE_DISCOVERY_POLL);
     }
-    Ok(None)
+    None
 }
 
 fn run_receiver(
@@ -161,19 +153,15 @@ fn run_receiver(
     tx: &broadcast::Sender<bytes::Bytes>,
     cancel: &CancellationToken,
 ) -> Result<(), NdiIoError> {
-    let ndi = NDI::new().map_err(NdiIoError::Init)?;
-    let finder = Finder::new(
-        &ndi,
-        &FinderOptions::builder().show_local_sources(true).build(),
-    )?;
+    let api = sys::load()?;
+    let mut finder = Finder::new(api.clone(), true)?;
     info!(source = %id, wanted = %source_name, "searching for NDI source");
-    let Some(source) = find_source_by_name(&finder, source_name, cancel)? else {
+    let Some(source) = find_source_by_name(&mut finder, source_name, cancel) else {
         return Ok(()); // cancelled while still searching
     };
     info!(source = %id, ndi_source = %source.name, "NDI input connected");
 
-    let options = ReceiverOptions::builder(source).build();
-    let receiver = Receiver::new(&ndi, &options)?;
+    let mut receiver = Receiver::connect(api, &source, "srt-router")?;
 
     // Deliberately *not* gating on `receiver.is_connected()` per-iteration:
     // it reads false for a while right after connecting (a fresh socket
@@ -189,19 +177,24 @@ fn run_receiver(
     const SILENCE_TIMEOUT: Duration = Duration::from_secs(30);
 
     while !cancel.is_cancelled() {
-        let mut got_frame = false;
-        if let Some(frame) = receiver.video().try_capture(Duration::from_millis(200))? {
-            let _ = tx.send(envelope::encode_video(&frame));
-            got_frame = true;
-        }
-        if let Some(frame) = receiver.audio().try_capture(Duration::from_millis(1))? {
-            let _ = tx.send(envelope::encode_audio(&frame));
-            got_frame = true;
-        }
-        if let Some(frame) = receiver.metadata().try_capture(Duration::from_millis(1))? {
-            let _ = tx.send(envelope::encode_metadata(&frame));
-            got_frame = true;
-        }
+        // One call serves all three kinds: `recv_capture_v3` returns whichever
+        // frame arrived first, so unlike the previous three-call poll there is
+        // no per-kind timeout to balance.
+        let got_frame = match receiver.capture(CAPTURE_TIMEOUT) {
+            Some(Frame::Video(frame)) => {
+                let _ = tx.send(envelope::encode_video(&frame));
+                true
+            }
+            Some(Frame::Audio(frame)) => {
+                let _ = tx.send(envelope::encode_audio(&frame));
+                true
+            }
+            Some(Frame::Metadata(frame)) => {
+                let _ = tx.send(envelope::encode_metadata(&frame));
+                true
+            }
+            None => false,
+        };
         if got_frame {
             last_frame_at = std::time::Instant::now();
         } else if last_frame_at.elapsed() > SILENCE_TIMEOUT {
@@ -218,8 +211,8 @@ fn run_sender(
     crosspoint: &Arc<Crosspoint>,
     cancel: &CancellationToken,
 ) -> Result<(), NdiIoError> {
-    let ndi = NDI::new().map_err(NdiIoError::Init)?;
-    let sender = Sender::new(&ndi, &SenderOptions::builder(name).build())?;
+    let api = sys::load()?;
+    let mut sender = Sender::new(api, name)?;
     info!(output = %id, ndi_name = %name, "NDI output advertising");
 
     while !cancel.is_cancelled() {

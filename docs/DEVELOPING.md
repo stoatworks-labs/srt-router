@@ -69,7 +69,7 @@ crates/
     config.rs      TOML config types
     management.rs  The /api/manage runtime add/remove API
   srt-io/    SRT backend
-  ndi-io/    NDI backend      (feature `ndi`,  needs NDI SDK)
+  ndi-io/    NDI backend      (on by default; runtime loaded at run time, no SDK to build)
   omt-io/    OMT backend      (feature `omt`,  needs OMT_LIB_DIR)
   media-io/  Stills / file playback / scaler (needs ffmpeg at runtime)
   web/       Web UI + crosspoint API. static/index.html is include_str!'d in.

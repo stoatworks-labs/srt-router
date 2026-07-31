@@ -77,8 +77,8 @@ rate, timecode...). `crates/ndi-io/src/envelope.rs` is the "turn a native
 frame into a `Bytes` blob and back" logic the note above described in the
 abstract: a small self-describing wire format (a kind byte, then that
 frame's fields, then its raw data) that a receiver encodes into and a
-sender decodes back out of. `crates/core` never links against `grafton-ndi`
-or knows NDI exists — it's still just moving `Bytes`.
+sender decodes back out of. `crates/core` never links against the NDI
+bindings or knows NDI exists — it's still just moving `Bytes`.
 
 ![One crosspoint, two ways of filling a Bytes chunk: SRT relays its socket payload straight through, NDI encodes a VideoFrame/AudioFrame/MetadataFrame into a self-describing envelope and decodes it back on the other side, both ending up in the same crosspoint-core Bytes broadcast channel](diagrams/multi-transport-envelope.svg)
 
@@ -159,15 +159,22 @@ already local to this process.
   web UI's Add source/destination forms and remove buttons call — merged
   into the same `axum::Router` as `crosspoint-web`'s routes via `.merge()`.
 - `crates/ndi-io` (`ndi-io`) — the NDI transport: `spawn_input`/
-  `spawn_output` with the same shape as `srt-io`'s, using
-  [grafton-ndi](https://github.com/GrantSparks/grafton-ndi) against the
-  real NDI SDK, with `src/envelope.rs` doing the frame<->`Bytes` conversion
-  described above. Requires the actual NDI SDK installed to build (real
-  bindgen against its headers) — it's a genuine workspace member
-  (buildable/testable via `-p ndi-io`) but excluded from
-  `default-members`, so it doesn't affect the default `cargo build`/`cargo
-  test`/CI, which stay SRT-only. Wired into `crates/router` behind the `ndi`
-  Cargo feature — config, runtime REST API, and web UI all reach it.
+  `spawn_output` with the same shape as `srt-io`'s, with `src/envelope.rs`
+  doing the frame<->`Bytes` conversion described above. **Needs no SDK to
+  build**: `src/sys.rs` is hand-written FFI that loads the NDI runtime with
+  `dlopen` and binds the flat C ABI, the same shape `omt-io` already used for
+  OMT. It replaced `grafton-ndi`, which ran bindgen against the installed SDK
+  and linked `libndi` — that made the crate unbuildable on the
+  `cargo-zigbuild`/`cargo-xwin` cross-compilation targets, so the `ndi`
+  feature stayed off for every release and **released binaries had no NDI
+  transport at all**. It is now in `default-members` and the `ndi` feature is
+  on by default, so `cargo build`/`cargo test`/CI cover it and every
+  cross-compiled target ships it. Frames returned by `NDIlib_recv_capture_v3`
+  are SDK-owned and must be freed with the matching `recv_free_*`;
+  `Receiver::capture` copies each into an owned Rust value and frees it before
+  returning, so no SDK lifetime escapes the module — a copy this crate paid
+  anyway, since every captured frame is immediately serialised into an
+  envelope.
 - `crates/omt-io` (`omt-io`) — the OMT transport (open, MIT-licensed
   protocol): same `spawn_input`/`spawn_output` shape again, hand-written FFI
   (`src/sys.rs`) transcribed directly from `libomt.h` (no bindgen — the C
@@ -177,8 +184,8 @@ already local to this process.
   `libomtnet` release's `Libraries/<platform>` folder to build (no standard
   install location exists for OMT the way NDI has one). Also excluded from
   `default-members`. Wired into `crates/router` behind the `omt` Cargo
-  feature, the same way as NDI — including being usable simultaneously with
-  it (`--features ndi,omt`). Because `omt-io` has no `[[bin]]` target of its
+  feature — unlike NDI, which no longer needs one. Because `omt-io` has no
+  `[[bin]]` target of its
   own, its rpath (`-Wl,-rpath,$OMT_LIB_DIR`) only reaches its *own* test
   binaries via its `build.rs`; `crates/router/build.rs` emits the same
   rpath arg again for `srtrouter`'s actual `[[bin]]` target when the `omt`

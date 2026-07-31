@@ -68,9 +68,10 @@ and `crates/omt-io` is the same idea for
 alternative to NDI — implemented via hand-written FFI against the real SDK
 (requires `OMT_LIB_DIR`, no bindgen). Both are fully wired into the router:
 usable from the TOML config **and** the runtime add-source/add-destination
-REST API **and** the web UI's Add source/Add destination menus, behind their
-own opt-in Cargo features (`cargo run --features ndi`, `--features omt`, or
-both together). `crates/media-io` (stills/media-player/scaler, see
+REST API **and** the web UI's Add source/Add destination menus. **NDI is on by
+default** — it loads its runtime at run time and needs no SDK to build; OMT
+stays behind an opt-in `omt` Cargo feature because it still links at build
+time (`cargo run --features omt`). `crates/media-io` (stills/media-player/scaler, see
 [What it does](#what-it-does)) needs no feature — just `ffmpeg` on `PATH`.
 Every input/output entry — TOML or REST — now needs an explicit
 `transport = "srt" | "ndi" | "omt" | "media"` tag; see
@@ -101,19 +102,22 @@ Working:
   source**/**Add destination** forms plus a remove control per row/column.
 - Routing changes optionally persist to disk (`[state]` in the config) and
   reload on restart, overriding each output's `default_source`.
-- `crates/ndi-io`: a real NDI transport using
-  [grafton-ndi](https://github.com/GrantSparks/grafton-ndi) (Apache-2.0)
-  against the actual NDI SDK, with its own integration test driving a real
-  NDI sender and receiver against it, consistently passing. Fully wired into
-  `srtrouter`'s TOML config, the runtime add/remove REST API, **and** the web
-  UI's Add source/Add destination menus, behind an opt-in `ndi` Cargo feature
-  (`cargo run --features ndi`).
+- `crates/ndi-io`: a real NDI transport, with its own integration test driving
+  a real NDI sender and receiver against it, consistently passing. Fully wired
+  into `srtrouter`'s TOML config, the runtime add/remove REST API, **and** the
+  web UI's Add source/Add destination menus. **Built by default**: its `sys`
+  module loads the NDI runtime with `dlopen`, so nothing needs the proprietary
+  SDK at build time and NDI is present in every cross-compiled release. (It
+  previously used `grafton-ndi`, which linked the SDK at build time — that kept
+  the feature off for every release target, so released binaries had no NDI at
+  all.) A machine with no NDI runtime still builds and runs the router; only an
+  NDI endpoint fails, and the message names the download.
 - `crates/omt-io`: a real, tested [OMT](https://openmediatransport.org/)
   transport via hand-written FFI against the OMT SDK (`OMT_LIB_DIR`, no
   bindgen), with its own relay integration test. Wired in exactly the same
   way as NDI — TOML config, REST API, web UI menus — behind an opt-in `omt`
-  Cargo feature (`cargo run --features omt`). Both features can be enabled
-  together (`--features ndi,omt`); an explicit `transport` tag on every
+  Cargo feature (`cargo run --features omt`). It composes with NDI, which is
+  on by default; an explicit `transport` tag on every
   input/output disambiguates them even where their endpoint shapes are
   otherwise identical (NDI's and OMT's `Sender { name }`, in particular —
   see [docs/roadmap.md](docs/roadmap.md) for why that mattered).
@@ -134,9 +138,9 @@ Working:
   real SDKs CI can't install, so they're real workspace members but
   excluded from `default-members`; `media-io` needs only `ffmpeg`, which CI
   installs explicitly — see [docs/architecture.md](docs/architecture.md)).
-- Verified locally, not just compiled: `cargo test` passes — default
-  (SRT+media), `--features ndi`, `--features omt`, and `--features
-  ndi,omt` all build and pass clean — including integration tests
+- Verified locally, not just compiled: `cargo test` passes — the default build
+  (SRT + media + NDI) and `--features omt` both build and pass clean —
+  including integration tests
   (`crates/srt-io/tests/relay.rs`, `crates/ndi-io/tests/relay.rs`,
   `crates/omt-io/tests/relay.rs`, `crates/media-io/tests/relay.rs`) that
   relay real protocol traffic (or, for media-io, real ffmpeg-produced
@@ -217,7 +221,7 @@ procedure: **[docs/UNSIGNED.md](docs/UNSIGNED.md)**.
 Full phased plan in [docs/roadmap.md](docs/roadmap.md). Main open items:
 
 - [ ] **Real-world testing** — against a third-party SRT/NDI/OMT encoder/decoder and over a real (non-loopback) network path; the main open gap.
-- [x] **NDI and OMT live in the web UI, config, and REST API** — both fully wired behind their own opt-in Cargo features (`ndi`, `omt`), disambiguated by an explicit `transport` tag per input/output.
+- [x] **NDI and OMT live in the web UI, config, and REST API** — disambiguated by an explicit `transport` tag per input/output. NDI ships by default (runtime loaded with `dlopen`, no SDK needed to build); OMT stays behind an opt-in `omt` feature.
 - [x] **Special-purpose sources** — stills, local media player, scaler tap, all built on real `ffmpeg` child processes and live in the web UI's Add source menu, config, and REST API.
 - [ ] **Auth/TLS** on the web UI/API.
 - [ ] **External control API / Bitfocus Companion** integration.

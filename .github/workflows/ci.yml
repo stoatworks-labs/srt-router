@@ -30,9 +30,13 @@ jobs:
         run: cargo clippy --all-targets -- -D warnings
       - name: test
         # No --all/--workspace: that overrides [workspace] default-members
-        # and would try to build ndi-io/omt-io too, which need real SDKs
-        # (NDI SDK, libomt) that aren't installed on this runner. Plain
-        # `cargo test` respects default-members and stays SRT-only (plus
-        # media-io, a default member since it only needs ffmpeg at
-        # runtime, no SDK to build against).
+        # and would try to build omt-io too, which links libomt and needs
+        # OMT_LIB_DIR pointed at an SDK this runner does not have.
+        #
+        # ndi-io IS a default member and builds here: it loads the NDI runtime
+        # with dlopen rather than linking it, so nothing is needed at build
+        # time. Its tests skip themselves when no runtime is present — verified
+        # by running them with both local copies of libndi denied, where they
+        # print "no NDI runtime installed — skipping" and pass — so this runner
+        # exercises the envelope and struct-layout tests and skips the rest.
         run: cargo test
