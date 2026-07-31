@@ -356,6 +356,21 @@ fn candidates() -> Vec<PathBuf> {
             for name in LIBRARY_NAMES {
                 out.push(dir.join(name));
             }
+            // Inside a macOS .app the runtime lives in Contents/Frameworks,
+            // because `codesign` will not accept a dylib anywhere else. That is
+            // not always beside the executable: a Tauri launcher runs
+            // Contents/MacOS/<launcher> but ships the real binary at
+            // Contents/Resources/bin/<server>, two levels down. So walk up for
+            // the enclosing `Contents` rather than assuming a fixed depth.
+            #[cfg(target_os = "macos")]
+            if let Some(contents) = dir
+                .ancestors()
+                .find(|a| a.file_name().is_some_and(|n| n == "Contents"))
+            {
+                for name in LIBRARY_NAMES {
+                    out.push(contents.join("Frameworks").join(name));
+                }
+            }
         }
     }
     // Bare name: the platform's own loader search path.

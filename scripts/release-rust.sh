@@ -131,6 +131,27 @@ for p in json.load(sys.stdin)['packages']:
   return 0
 }
 
+# Stage the NDI runtime into a payload, when the project asked for it.
+#
+# Opt in with RR_BUNDLE_NDI=1 in release-local.sh. Off by default, because
+# shipping the runtime is a licence commitment (see release-lib.sh's NDI
+# section and the release checklist): the installer's EULA must carry Vizrt's
+# terms, which rl_eula does, and the bundled version must be kept current,
+# which nothing can do for you.
+#
+# A target whose runtime is not on this host is skipped, not failed — every app
+# in the fleet loads NDI dynamically and degrades to "unavailable, here is the
+# download", so an un-bundled artefact is still a working one.
+rr_ndi() { # rr_ndi <label> <stagedir> [--app <BundleName>]
+  [[ "${RR_BUNDLE_NDI:-}" == "1" ]] || return 0
+  rl_ndi_bundle "$@"
+  # Must follow rl_ndi_bundle: rl_eula only adds the NDI terms once it can see
+  # the runtime was staged. Recomputed each time so the first successful bundle
+  # switches the licence page on for every installer built afterwards.
+  RL_EULA="$(rl_eula "$repo/LICENSE")"
+  export RL_EULA
+}
+
 rr_build_target() { # rr_build_target <label> <target> <builder> <ext>
   local label="$1" target="$2" builder="$3" ext="${4:-}"
   echo "==> server ${label} (${target})"
@@ -142,6 +163,7 @@ rr_build_target() { # rr_build_target <label> <target> <builder> <ext>
   esac
   local stage="$out/.stage-$label"
   rr_stage "$stage" "$target" "$ext"
+  rr_ndi "$label" "$stage"
   if [[ "$ext" == ".exe" ]]; then
     rl_zip  "$label" "$stage"
     rl_nsis "$label" "$stage" --cli
@@ -173,10 +195,12 @@ fi
 # There is no .app here — these are console tools — so the .dmg holds the plain
 # payload rather than a bundle.
 rr_stage "$out/.stage-srv-mac" aarch64-apple-darwin
+rr_ndi macos-aarch64 "$out/.stage-srv-mac"
 rl_pkg macos-aarch64-cli "$out/.stage-srv-mac" --cli
 rl_dmg macos-aarch64-cli "$out/.stage-srv-mac"
 rm -rf "$out/.stage-srv-mac"
 rr_stage "$out/.stage-srv-mac-x64" x86_64-apple-darwin
+rr_ndi macos-x86_64 "$out/.stage-srv-mac-x64"
 rl_pkg macos-x86_64-cli "$out/.stage-srv-mac-x64" --cli
 rl_dmg macos-x86_64-cli "$out/.stage-srv-mac-x64"
 rm -rf "$out/.stage-srv-mac-x64"
@@ -217,6 +241,11 @@ if [[ -n "$RR_LAUNCHER" ]]; then
     local stage="$out/.stage-app-$label"
     rm -rf "$stage"; mkdir -p "$stage"
     cp -R "$appdir/$RR_APP_NAME" "$stage/"
+    # Before signing: the bundle is signed inside-out, so anything added
+    # afterwards would be outside the signature.
+    # Labels here are "macos-aarch64-app"; strip the suffix so the target name
+    # matches the documented RL_NDI_DIR_MACOS_AARCH64 form.
+    rr_ndi "${label%-app}" "$stage" --app "$RR_APP_NAME"
     rl_adhoc_sign "$stage/$RR_APP_NAME"
     rl_dmg "$label" "$stage" --app "$RR_APP_NAME"
     rl_pkg "$label" "$stage" --app "$RR_APP_NAME"
