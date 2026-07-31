@@ -45,8 +45,26 @@ const RETRY_DELAY: Duration = Duration::from_secs(2);
 const SOURCE_DISCOVERY_POLL: Duration = Duration::from_secs(5);
 const OUTPUT_ROUTE_POLL: Duration = Duration::from_millis(5);
 
+/// Where to send an operator whose runtime is missing or unusable. The SDK
+/// publishes this as `NDILIB_REDIST_URL`, but `grafton-ndi` does not re-export
+/// it and the value is platform-specific — on Linux it is empty, because no
+/// one-click redistributable exists there, so point at the SDK download instead
+/// of printing nothing.
+const NDI_REDIST_URL: &str = if cfg!(target_os = "macos") {
+    "http://ndi.link/NDIRedistV6Apple"
+} else if cfg!(target_os = "windows") {
+    "http://ndi.link/NDIRedistV6"
+} else {
+    "https://ndi.video/for-developers/ndi-sdk/"
+};
+
 #[derive(Debug, thiserror::Error)]
 enum NdiIoError {
+    /// Separate from [`NdiIoError::Ndi`] because this is the one failure an
+    /// operator can actually fix, and the fix is a download. Everything else is
+    /// a stream-level fault where a URL would just be noise.
+    #[error("the NDI runtime failed to initialise ({0}) — install or reinstall it from {NDI_REDIST_URL}")]
+    Init(grafton_ndi::Error),
     #[error(transparent)]
     Ndi(#[from] grafton_ndi::Error),
     #[error("NDI source disconnected")]
@@ -143,7 +161,7 @@ fn run_receiver(
     tx: &broadcast::Sender<bytes::Bytes>,
     cancel: &CancellationToken,
 ) -> Result<(), NdiIoError> {
-    let ndi = NDI::new()?;
+    let ndi = NDI::new().map_err(NdiIoError::Init)?;
     let finder = Finder::new(
         &ndi,
         &FinderOptions::builder().show_local_sources(true).build(),
@@ -200,7 +218,7 @@ fn run_sender(
     crosspoint: &Arc<Crosspoint>,
     cancel: &CancellationToken,
 ) -> Result<(), NdiIoError> {
-    let ndi = NDI::new()?;
+    let ndi = NDI::new().map_err(NdiIoError::Init)?;
     let sender = Sender::new(&ndi, &SenderOptions::builder(name).build())?;
     info!(output = %id, ndi_name = %name, "NDI output advertising");
 
