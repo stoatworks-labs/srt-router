@@ -1,10 +1,12 @@
 //! Integration test that exercises the full input -> crosspoint -> output
 //! relay path over a *real* NDI connection: the test acts as both the
-//! "camera" (a real `grafton_ndi::Sender`) and the "monitor" (a real
-//! `grafton_ndi::Receiver`), with `ndi-io`'s own `spawn_input`/`spawn_output`
+//! "camera" (a real `ndi_io::sys::Sender`) and the "monitor" (a real
+//! `ndi_io::sys::Receiver`), with `ndi-io`'s own `spawn_input`/`spawn_output`
 //! in between doing the actual relay — exactly the encoder/decoder-around-
-//! the-router shape `crates/srt-io/tests/relay.rs` uses for SRT. Requires
-//! the real NDI SDK/runtime (see the workspace README); not run in CI.
+//! the-router shape `crates/srt-io/tests/relay.rs` uses for SRT.
+//!
+//! Needs a real NDI *runtime* but no SDK to build (see `src/sys.rs`); skips
+//! itself when none is installed, so it is safe to run anywhere.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -12,11 +14,13 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crosspoint_core::Crosspoint;
-use grafton_ndi::{
-    Finder, FinderOptions, PixelFormat, Receiver, ReceiverOptions, Sender, SenderOptions,
-    VideoFrame, NDI,
-};
+use ndi_io::sys::{self, Finder, Frame, Receiver, Sender, VideoFrame};
 use ndi_io::{spawn_input, spawn_output, Endpoint};
+
+/// BGRX is what the receiver's colour format (`BGRX_BGRA`) yields for a source
+/// with no alpha, so it is both what the camera sends and what the monitor
+/// should see coming back out of the router.
+const FOURCC_BGRX: u32 = u32::from_le_bytes(*b"BGRX");
 
 const DISCOVERY_TIMEOUT: Duration = Duration::from_secs(20);
 const CAPTURE_TIMEOUT: Duration = Duration::from_secs(20);
@@ -27,6 +31,10 @@ fn relays_a_video_frame_end_to_end_over_real_ndi() {
         .with_test_writer()
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .try_init();
+    let Ok(api) = sys::load() else {
+        eprintln!("no NDI runtime installed — skipping");
+        return;
+    };
     let rt = tokio::runtime::Runtime::new().expect("build tokio runtime");
     let crosspoint = Crosspoint::new();
 
@@ -57,16 +65,26 @@ fn relays_a_video_frame_end_to_end_over_real_ndi() {
     let stop = Arc::new(AtomicBool::new(false));
     let camera_thread = {
         let stop = stop.clone();
+        let api = api.clone();
         thread::spawn(move || {
-            let ndi = NDI::new().expect("NDI init (camera thread)");
-            let camera = Sender::new(&ndi, &SenderOptions::builder("ndi-io-test-camera").build())
-                .expect("create test camera sender");
-            let frame = VideoFrame::builder()
-                .resolution(64, 64)
-                .pixel_format(PixelFormat::BGRX)
-                .frame_rate(30, 1)
-                .build()
-                .expect("build test frame");
+            let mut camera =
+                Sender::new(api, "ndi-io-test-camera").expect("create test camera sender");
+            // A recognisable, non-uniform payload: a uniform frame would pass
+            // even if the relay dropped rows.
+            let stride: i32 = 64 * 4;
+            let data = (0..(stride * 64)).map(|i| (i % 251) as u8).collect();
+            let frame = VideoFrame {
+                xres: 64,
+                yres: 64,
+                four_cc: FOURCC_BGRX,
+                frame_rate_n: 30,
+                frame_rate_d: 1,
+                picture_aspect_ratio: 0.0,
+                frame_format_type: 1, // progressive
+                timecode: sys::SEND_TIMECODE_SYNTHESIZE,
+                line_stride_in_bytes: stride,
+                data,
+            };
             while !stop.load(Ordering::Relaxed) {
                 camera.send_video(&frame);
                 thread::sleep(Duration::from_millis(33));
@@ -74,47 +92,38 @@ fn relays_a_video_frame_end_to_end_over_real_ndi() {
         })
     };
 
-    let ndi = NDI::new().expect("NDI init (test thread)");
-
     // The test's own "monitor": a plain NDI receiver watching the router's
     // output.
-    let finder = Finder::new(
-        &ndi,
-        &FinderOptions::builder().show_local_sources(true).build(),
-    )
-    .expect("create finder");
+    let mut finder = Finder::new(api.clone(), true).expect("create finder");
     eprintln!("[test] discovering router output...");
     let monitor_source = {
         let start = Instant::now();
         loop {
-            let sources = finder.current_sources().expect("list sources");
-            if let Some(s) = sources
-                .iter()
+            if let Some(s) = finder
+                .current_sources()
+                .into_iter()
                 .find(|s| s.name.contains("ndi-io-test-output"))
             {
-                break s.clone();
+                break s;
             }
             assert!(
                 start.elapsed() < DISCOVERY_TIMEOUT,
                 "timed out waiting to discover the router's NDI output"
             );
-            finder.wait_for_sources(Duration::from_millis(500)).ok();
+            finder.wait_for_sources(Duration::from_millis(500));
         }
     };
     eprintln!("[test] found router output, creating monitor receiver...");
 
-    let monitor = Receiver::new(&ndi, &ReceiverOptions::builder(monitor_source).build())
+    let mut monitor = Receiver::connect(api, &monitor_source, "ndi-io-test-monitor")
         .expect("create test monitor receiver");
 
     eprintln!("[test] monitor receiver created, waiting for relayed frame...");
     let received = {
         let start = Instant::now();
         loop {
-            if let Some(f) = monitor
-                .video()
-                .try_capture(Duration::from_millis(200))
-                .expect("capture video")
-            {
+            // Audio and metadata can arrive first; only a video frame ends this.
+            if let Some(Frame::Video(f)) = monitor.capture(Duration::from_millis(200)) {
                 break f;
             }
             assert!(
@@ -136,8 +145,18 @@ fn relays_a_video_frame_end_to_end_over_real_ndi() {
     // without waiting, which is what we actually want here.
     rt.shutdown_background();
 
-    assert_eq!(received.width(), 64);
-    assert_eq!(received.height(), 64);
-    assert_eq!(received.pixel_format(), PixelFormat::BGRX);
-    assert_eq!(received.data().len(), 64 * 64 * 4);
+    assert_eq!(received.xres, 64);
+    assert_eq!(received.yres, 64);
+    assert_eq!(
+        received.four_cc, FOURCC_BGRX,
+        "expected BGRX out of the router"
+    );
+    assert_eq!(received.data.len(), 64 * 64 * 4);
+    // The payload survived the crosspoint, not just the frame header. This is
+    // what the old envelope could not guarantee for a padded stride.
+    assert_eq!(received.line_stride_in_bytes, 64 * 4);
+    assert!(
+        received.data.iter().any(|&b| b != received.data[0]),
+        "relayed frame is uniform — the payload did not survive"
+    );
 }

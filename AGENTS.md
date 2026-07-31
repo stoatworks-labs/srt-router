@@ -63,17 +63,29 @@ cargo build -p core -p router -p srt-io       # skip omt-io
 The build script's error message is clear; the repo docs did not previously mention it, which
 is why a newcomer reads a normal external dependency as a broken checkout.
 
-`ndi-io` has the same shape of dependency — the NDI SDK must be installed for it to compile.
+`ndi-io` used to have the same shape of dependency, and no longer does. It loads the NDI
+runtime with `dlopen` (`crates/ndi-io/src/sys.rs`) instead of linking it, so **no NDI SDK is
+needed to build** and the crate is a normal default member. The change mattered because the
+old build-time link made the crate impossible to compile on the cross-compilation targets
+releases are cut on, so the `ndi` feature stayed off and every released binary shipped with
+no NDI transport.
+
+The trap that replaces it: `sys.rs`'s `#[repr(C)]` structs must match the SDK headers
+exactly, since a wrong field order corrupts memory rather than failing to build. Its tests
+assert every size **and offset** against numbers taken from a C program compiled against the
+real headers, and one sends a real frame through an installed runtime. They skip themselves
+when no runtime is present, so they are safe to run anywhere — verified by running them with
+both local copies of `libndi` denied.
 
 ## 4. Linting
 
 ```bash
-cargo clippy --all-targets --all-features
+cargo clippy --all-targets -- -D warnings
 ```
 
-Note this differs from the sibling openstage project, where `--all-features` is explicitly
-forbidden for the same NDI reason. Here it is the documented command — but it will still
-require the NDI/OMT dependencies present. On a machine without them, lint per-crate.
+This covers NDI, which is a default member and on by default. `--all-features` additionally
+pulls in `omt`, which still links `libomt` and needs `OMT_LIB_DIR` — use it only on a machine
+that has the OMT SDK.
 
 ## 5. Status — what's actually proven
 

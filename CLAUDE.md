@@ -15,6 +15,13 @@ Crosspoint-based SRT router (Rust). Relays/routes SRT streams through a matrix, 
 - `web` — web UI
 
 ## Notes
+- **NDI needs no SDK to build.** `crates/ndi-io/src/sys.rs` loads the runtime with `dlopen`
+  and binds the flat C ABI; the `ndi` feature is on by default and `ndi-io` is a default
+  workspace member. Do not reintroduce a build-time-linked NDI crate (`grafton-ndi` and
+  friends) — that is what kept NDI out of every cross-compiled release until 2026-07-31.
+  `sys.rs`'s `#[repr(C)]` layouts must match the SDK headers exactly; its tests assert sizes
+  and offsets and skip when no runtime is installed. `omt-io` still links at build time, so
+  it stays opt-in behind `--features omt` and out of `default-members`.
 - Routing is crosspoint-based: sources × destinations matrix — keep new I/O backends behind the `core` I/O trait.
 - Multi-platform release CI; cross-compile macOS x86_64 on macos-14 (never macos-13).
 - Public repo. Ships user-facing AI disclaimer. "Commit" = commit **and** push.

@@ -122,8 +122,9 @@
       posts an NDI sender and an OMT sender with the same `name` and
       asserts each is dispatched to its own transport — passes, proving the
       tag actually resolves the collision rather than just moving it.
-      Verified for real: default (SRT-only), `--features ndi`, `--features
-      omt`, and `--features ndi,omt` all build and `cargo test` clean; a
+      Verified for real: default (SRT-only at the time), `--features ndi`,
+      `--features omt`, and `--features ndi,omt` all built and `cargo test`
+      clean; a
       running `--features ndi,omt` binary correctly reports
       `["srt","ndi","omt"]` from `/api/manage/transports`, and adding an
       OMT source/destination through the actual browser UI produces the

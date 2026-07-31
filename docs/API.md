@@ -136,7 +136,7 @@ default_source = "cam1"
 | `transport` | `mode` values | Requires |
 |---|---|---|
 | `srt` | `listener`, `caller` | — |
-| `ndi` | `receiver`, `sender` | built with `--features ndi` + NDI SDK |
+| `ndi` | `receiver`, `sender` | an NDI runtime at run time (built in by default) |
 | `omt` | `receiver`, `sender` | built with `--features omt` + libomt |
 | `media` | `stills`, `mediaplayer`, `scaler` | `ffmpeg` on `PATH` (inputs only) |
 

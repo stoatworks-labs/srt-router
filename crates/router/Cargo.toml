@@ -32,5 +32,13 @@ clap = { version = "4", features = ["derive"] }
 tower = { version = "0.5", features = ["util"] }
 
 [features]
+# NDI is on by default. It used to be off because `ndi-io` linked the
+# proprietary NDI SDK at build time, so no cross-compiled release target could
+# enable it — which meant every released binary shipped without the NDI
+# transport. `ndi-io` now loads the runtime with `dlopen` (see its `sys` module)
+# and needs nothing at build time, so the flag is only an opt-out for a smaller
+# binary, never a build requirement.
+default = ["ndi"]
 ndi = ["dep:ndi-io"]
+# `omt-io` still links its SDK at build time, so this stays opt-in.
 omt = ["dep:omt-io"]
