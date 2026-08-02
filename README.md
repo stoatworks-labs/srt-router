@@ -282,6 +282,20 @@ Full phased plan in [docs/roadmap.md](docs/roadmap.md). Main open items:
 - [ ] **Auth/TLS** on the web UI/API.
 - [ ] **External control API / Bitfocus Companion** integration.
 
+## Control it from Companion
+
+[**companion-module-srt-router**](https://github.com/stoatworks-labs/companion-module-srt-router) is a [Bitfocus Companion](https://bitfocus.io/companion) connection module for this app.
+
+Takes, cycles and salvos on the crosspoint, plus runtime add/remove — with
+crosspoint tally and source-side tally.
+
+Crosspoint presets are **generated from the router's own sources and outputs**
+once the module connects, one section per output, so a row of buttons is one
+section dragged onto a page.
+
+It is not in the official Companion module store — install it via
+**Settings → Developer modules path**.
+
 ## Trademarks and third-party licences
 
 **NDI® is a registered trademark of Vizrt NDI AB.** See <https://ndi.video>.
