@@ -124,7 +124,11 @@ async fn push_state(mut socket: WebSocket, crosspoint: Arc<Crosspoint>) {
             return;
         };
         if last.as_deref() != Some(body.as_str()) {
-            if socket.send(Message::Text(body.clone())).await.is_err() {
+            if socket
+                .send(Message::Text(body.clone().into()))
+                .await
+                .is_err()
+            {
                 return;
             }
             last = Some(body);

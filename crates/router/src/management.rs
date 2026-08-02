@@ -398,9 +398,9 @@ pub fn router(state: ManageState) -> Router {
     Router::new()
         .route("/api/manage/transports", get(list_transports))
         .route("/api/manage/sources", get(list_sources).post(add_source))
-        .route("/api/manage/sources/:id", delete(remove_source))
+        .route("/api/manage/sources/{id}", delete(remove_source))
         .route("/api/manage/outputs", get(list_outputs).post(add_output))
-        .route("/api/manage/outputs/:id", delete(remove_output))
+        .route("/api/manage/outputs/{id}", delete(remove_output))
         .with_state(state)
 }
 
