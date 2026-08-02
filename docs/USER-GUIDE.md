@@ -21,6 +21,11 @@ the other, where each destination is fed by exactly one source, switchable live.
 
 Switching an output from one source to another is the whole point, and it happens live.
 
+![The crosspoint grid in the web UI: sources across the top, outputs down the side, and a marked cell where an output is taking a source.](screenshots/crosspoint-grid.png)
+
+*One marked cell per row, because an output takes exactly one source. A column with several marks
+is one source feeding several outputs, which is allowed and normal.*
+
 ---
 
 ## Running it
