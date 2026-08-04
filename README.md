@@ -304,3 +304,7 @@ redistributed here. NDI Tools are not redistributed either — get them from
 
 H.264, H.265 and AAC are separately licensable formats. The NDI SDK grant does
 not cover them, and the obligation sits with whoever ships a product using them.
+
+<!-- attributions:start -->
+This project is built on other people's work — see [ATTRIBUTIONS.md](ATTRIBUTIONS.md).
+<!-- attributions:end -->
