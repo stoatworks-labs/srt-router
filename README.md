@@ -48,13 +48,13 @@ how it's built.
 | Build | Download | Size |
 | --- | --- | --- |
 | Apple Silicon · .dmg disk image (app) | [`srt-router-0.1.3-macos-aarch64-app.dmg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-aarch64-app.dmg) | 10 MB |
-| Apple Silicon · .dmg disk image (CLI) | [`srt-router-0.1.3-macos-aarch64-cli.dmg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-aarch64-cli.dmg) | 8.4 MB |
+| Apple Silicon · .dmg disk image (CLI) | [`srt-router-0.1.3-macos-aarch64-cli.dmg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-aarch64-cli.dmg) | 8.3 MB |
 | Intel · .dmg disk image (app) | [`srt-router-0.1.3-macos-x86_64-app.dmg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-x86_64-app.dmg) | 11 MB |
-| Intel · .dmg disk image (CLI) | [`srt-router-0.1.3-macos-x86_64-cli.dmg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-x86_64-cli.dmg) | 8.4 MB |
+| Intel · .dmg disk image (CLI) | [`srt-router-0.1.3-macos-x86_64-cli.dmg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-x86_64-cli.dmg) | 8.5 MB |
 | Apple Silicon · .pkg installer (app) | [`srt-router-0.1.3-macos-aarch64-app.pkg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-aarch64-app.pkg) | 10 MB |
-| Apple Silicon · .pkg installer (CLI) | [`srt-router-0.1.3-macos-aarch64-cli.pkg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-aarch64-cli.pkg) | 7.2 MB |
+| Apple Silicon · .pkg installer (CLI) | [`srt-router-0.1.3-macos-aarch64-cli.pkg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-aarch64-cli.pkg) | 7.1 MB |
 | Intel · .pkg installer (app) | [`srt-router-0.1.3-macos-x86_64-app.pkg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-x86_64-app.pkg) | 11 MB |
-| Intel · .pkg installer (CLI) | [`srt-router-0.1.3-macos-x86_64-cli.pkg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-x86_64-cli.pkg) | 7.2 MB |
+| Intel · .pkg installer (CLI) | [`srt-router-0.1.3-macos-x86_64-cli.pkg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.1.3/srt-router-0.1.3-macos-x86_64-cli.pkg) | 7.3 MB |
 | Apple Silicon · .tar.gz archive | [`srt-router-macos-aarch64.tar.gz`](https://github.com/stoatworks-labs/srt-router/releases/latest/download/srt-router-macos-aarch64.tar.gz) | 2.5 MB |
 | Intel · .tar.gz archive | [`srt-router-macos-x86_64.tar.gz`](https://github.com/stoatworks-labs/srt-router/releases/latest/download/srt-router-macos-x86_64.tar.gz) | 2.6 MB |
 
@@ -88,7 +88,7 @@ how it's built.
 
 All builds, checksums and release notes: [github.com/stoatworks-labs/srt-router/releases](https://github.com/stoatworks-labs/srt-router/releases).
 
-These builds are unsigned, so macOS and Windows each warn once on first launch — see [Unsigned builds — Gatekeeper, SmartScreen & Defender Firewall](#unsigned-builds--gatekeeper-smartscreen--defender-firewall) for the one-time fix.
+macOS builds are signed and notarised and open normally. The Windows builds are unsigned, so SmartScreen warns once — see [Windows SmartScreen & Defender Firewall](#windows-smartscreen--defender-firewall) for the one-time click-through.
 
 <!-- downloads:end -->
 
