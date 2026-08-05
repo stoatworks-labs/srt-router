@@ -31,7 +31,7 @@ WORKDIR /app
 
 COPY --from=builder /app/target/release/srtrouter /usr/local/bin/srtrouter
 
-EXPOSE 8080
+EXPOSE 8091
 EXPOSE 5001/udp
 EXPOSE 5002/udp
 EXPOSE 6001/udp
@@ -44,6 +44,6 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -fsS http://localhost:8080/ >/dev/null || exit 1
+    CMD curl -fsS http://localhost:${WEB_PORT:-8091}/ >/dev/null || exit 1
 
 CMD ["srtrouter", "--config", "/app/config/srt-router.toml"]
