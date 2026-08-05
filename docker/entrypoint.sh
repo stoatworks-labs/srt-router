@@ -23,6 +23,17 @@ if [ -d /app/config-default ] && [ -z "$(ls -A /app/config 2>/dev/null)" ]; then
        [ ! -f /app/config/srt-router.toml ]; then
         mv /app/config/example.toml /app/config/srt-router.toml
     fi
+
+    # Move the web UI off the port the repo's example config uses. This app runs
+    # on host networking, where Unraid's port field does nothing and the process
+    # binds the host directly — so sharing a default with another host-networked
+    # container means whichever starts second dies with EADDRINUSE. flock is
+    # already on 8080, and was there first.
+    #
+    # Seed time only: this rewrites the file once, when it is first created. Edit
+    # the port in the config afterwards and it stays edited.
+    sed -i 's|^bind = "0.0.0.0:8080"|bind = "0.0.0.0:'"${WEB_PORT:-8091}"'"|' \
+        /app/config/srt-router.toml
 fi
 
 exec "$@"
