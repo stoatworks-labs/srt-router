@@ -30,9 +30,6 @@ jobs:
           - image: srt-router
             dockerfile: Dockerfile
             context: .
-          - image: srt-router-demo
-            dockerfile: docker/Dockerfile.srt-router-demo
-            context: .
 
     steps:
       - uses: actions/checkout@v4
