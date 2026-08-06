@@ -16,7 +16,7 @@ ndi-io = { path = "../ndi-io", optional = true }
 omt-io = { path = "../omt-io", optional = true }
 media-io = { path = "../media-io" }
 crosspoint-web = { path = "../web" }
-axum = "0.7"
+axum = "0.8"
 tokio = { version = "1", features = ["full"] }
 tokio-util = "0.7"
 parking_lot = "0.12"
