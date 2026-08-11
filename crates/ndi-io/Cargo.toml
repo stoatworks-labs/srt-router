@@ -8,7 +8,7 @@ license.workspace = true
 crosspoint-core = { path = "../core" }
 # Loads the NDI runtime at run time (see src/sys.rs) — deliberately not a
 # bindgen/link-time NDI crate, so no build target needs the SDK installed.
-libloading = "0.8"
+libloading = "0.9"
 tokio = { version = "1", features = ["full"] }
 bytes = "1"
 serde = { version = "1", features = ["derive"] }
