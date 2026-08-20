@@ -9,16 +9,17 @@
 #
 # Usage:
 #   build-demo.sh --src <dir with index.html> --fixtures <demo-fixtures.json> \
-#                 --out <output dir> [--base /repo-name/]
+#                 --out <output dir> [--base /repo-name/] [--version v1.2.3]
 set -euo pipefail
 
-SRC="" FIXTURES="" OUT="" BASE="/"
+SRC="" FIXTURES="" OUT="" BASE="/" VERSION=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --src) SRC="$2"; shift 2 ;;
     --fixtures) FIXTURES="$2"; shift 2 ;;
     --out) OUT="$2"; shift 2 ;;
     --base) BASE="$2"; shift 2 ;;
+    --version) VERSION="$2"; shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 1 ;;
   esac
 done
@@ -31,6 +32,40 @@ done
 [[ -f "$FIXTURES" ]] || { echo "error: fixtures not found: $FIXTURES" >&2; exit 1; }
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# The version the footer reports, for `data-version` below.
+#
+# Derived rather than required, because --version would otherwise have to be
+# remembered on every direct re-run — and a direct re-run is the documented way
+# to rebuild dist/ after a support-footer sync, so a forgotten flag would quietly
+# strip the version off every report filed afterwards.
+#
+# This script is vendored into <repo>/demo/, so the repo root is one level up.
+# Deliberately not `git describe`: dist/ is committed, and a build cannot know
+# the sha of the commit that will contain it.
+repo_version() {
+  _root="$HERE/.."
+  if [ -f "$_root/package.json" ]; then
+    sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+      "$_root/package.json" | head -1
+    return
+  fi
+  # [workspace.package] for these workspaces, [package] for a single crate;
+  # scoped to that table so a dependency's version cannot be picked up instead.
+  [ -f "$_root/Cargo.toml" ] || return 0
+  awk '
+    /^\[/ { inpkg = ($0 ~ /^\[(workspace\.)?package\]/) }
+    inpkg && /^version[[:space:]]*=/ && match($0, /"[^"]+"/) {
+      print substr($0, RSTART + 1, RLENGTH - 2); exit
+    }
+  ' "$_root/Cargo.toml"
+}
+
+if [ -z "$VERSION" ]; then
+  _v="$(repo_version)"
+  [ -n "$_v" ] && VERSION="v$_v"
+fi
+[ -n "$VERSION" ] || echo "  warning: no version found for the footer's data-version" >&2
 
 rm -rf "$OUT"
 mkdir -p "$OUT"
@@ -51,9 +86,9 @@ fi
 # Pages project (it serves at the root of its own domain); --base only matters
 # when hosting under a subdirectory, where those paths need rewriting. Either
 # way the shim has to load before the app's own script.
-python3 - "$OUT/index.html" "$BASE" "$OUT" <<'PY'
+python3 - "$OUT/index.html" "$BASE" "$OUT" "$VERSION" <<'PY'
 import json, os, re, sys
-path, base, out = sys.argv[1], sys.argv[2], sys.argv[3]
+path, base, out, version = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 html = open(path, encoding='utf-8').read()
 
 if base != '/':
@@ -101,6 +136,11 @@ if 'demo-shim.js' not in html:
 # so the footer and the shim's banner always name the same project. No
 # data-note: these demos are recorded against simulated devices, and every note
 # worth writing ("nothing leaves your browser") is a claim about a real backend.
+#
+# data-version does NOT come from the meta, though: the fixtures are a recording
+# and are re-made rarely, so a version baked into them would name whatever
+# release the demo was last recorded against rather than the one this dist/ was
+# built from. It comes from the repo's own manifest at build time instead.
 footer_js = os.path.join(out, 'support-footer.js')
 if os.path.exists(footer_js) and 'support-footer.js' not in html:
     meta = {}
@@ -115,6 +155,8 @@ if os.path.exists(footer_js) and 'support-footer.js' not in html:
         value = meta.get(key)
         if value:
             attrs.append(f'{name}="{value}"')
+    if version:
+        attrs.append(f'data-version="{version}"')
     footer = '<script ' + ' '.join(attrs) + '></script>\n'
 
     if '</body>' in html:
@@ -124,7 +166,8 @@ if os.path.exists(footer_js) and 'support-footer.js' not in html:
         # fragments the backend served with the right content type. Appending is
         # correct there: the parser puts it at the end of the implied body.
         html = html.rstrip() + '\n' + footer
-    print(f'  injected support-footer.js for {meta.get("app", "the app")}')
+    stamped = f' ({version})' if version else ''
+    print(f'  injected support-footer.js for {meta.get("app", "the app")}{stamped}')
 
 open(path, 'w', encoding='utf-8').write(html)
 print(f'  injected demo-shim.js, base={base}')
