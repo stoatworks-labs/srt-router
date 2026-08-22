@@ -132,16 +132,18 @@ pub fn find_config_path() -> Result<PathBuf, String> {
             }
         }
     }
-    Err("launcher.toml not found (set AV_LAUNCHER_CONFIG or place it in the working directory)".into())
+    Err(
+        "launcher.toml not found (set AV_LAUNCHER_CONFIG or place it in the working directory)"
+            .into(),
+    )
 }
 
 /// Parse the launcher configuration.
 pub fn load() -> Result<LauncherConfig, String> {
     let path = find_config_path()?;
-    let raw = std::fs::read_to_string(&path)
-        .map_err(|e| format!("reading {}: {e}", path.display()))?;
-    toml::from_str::<LauncherConfig>(&raw)
-        .map_err(|e| format!("parsing {}: {e}", path.display()))
+    let raw =
+        std::fs::read_to_string(&path).map_err(|e| format!("reading {}: {e}", path.display()))?;
+    toml::from_str::<LauncherConfig>(&raw).map_err(|e| format!("parsing {}: {e}", path.display()))
 }
 
 /// Enumerate bindable IPv4 interfaces, with an "All interfaces" entry first.
@@ -201,18 +203,80 @@ fn set_dotted(doc: &mut toml_edit::DocumentMut, dotted: &str, val: &str) {
     }
 }
 
-/// Resolve a possibly-relative path against `base` (the bundle's resource dir).
-/// Absolute paths are returned unchanged, so dev configs with absolute paths and
-/// shipped bundles with relative (bundled-resource) paths both work.
+/// Rewrite a Windows path into the form Win32 actually resolves: no verbatim
+/// prefix, backslash separators throughout.
+///
+/// Tauri's `resource_dir()` is `current_exe().canonicalize()`, and on Windows
+/// `canonicalize` hands back a *verbatim* path (`\\?\C:\…`). Win32 performs no
+/// normalisation inside a verbatim path, so the forward slashes a
+/// `launcher.toml` writes (`{resource}/node`) stop being separators: the path
+/// resolves to nothing, `exists()` is false for both `node` and `node.exe`, and
+/// the spawn fails on the bare, slash-separated name the config asked for.
+///
+/// Dropping the prefix is safe here — these are ordinary drive paths well under
+/// MAX_PATH. Verbatim *device* paths (`\\?\Volume{…}`) have no non-verbatim
+/// spelling, so they are returned untouched.
+fn simplify_windows_path(path: &str) -> String {
+    if let Some(rest) = path.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{}", rest.replace('/', "\\"));
+    }
+    if let Some(rest) = path.strip_prefix(r"\\?\") {
+        let bytes = rest.as_bytes();
+        let is_drive = bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':';
+        if !is_drive {
+            return path.to_string();
+        }
+        return rest.replace('/', "\\");
+    }
+    path.replace('/', "\\")
+}
+
+/// [`simplify_windows_path`] on Windows, identity elsewhere. `cfg!` rather than
+/// `#[cfg]` so both arms keep compiling — and the tests keep running — on every
+/// platform.
+fn native_path(path: &str) -> String {
+    if cfg!(windows) {
+        simplify_windows_path(path)
+    } else {
+        path.to_string()
+    }
+}
+
+/// Resolve a possibly-relative path against `base` (the bundle's resource dir),
+/// and hand back a path spelled the way this platform resolves it. Absolute
+/// paths keep their location, so dev configs with absolute paths and shipped
+/// bundles with relative (bundled-resource) paths both work.
 fn resolve_against(path: &str, base: Option<&Path>) -> String {
     let p = Path::new(path);
     if p.is_absolute() {
-        return path.to_string();
+        return native_path(path);
     }
     match base {
-        Some(dir) => dir.join(p).to_string_lossy().into_owned(),
-        None => path.to_string(),
+        Some(dir) => native_path(&dir.join(p).to_string_lossy()),
+        None => native_path(path),
     }
+}
+
+/// On Windows a bundled command ships with a `.exe` extension (e.g. `node.exe`),
+/// but `launcher.toml` names it without one (`node`). If the extension-less
+/// program isn't present and a `.exe` sibling is, prefer that so the spawn finds
+/// the executable. Relies on the path already being native — see
+/// [`simplify_windows_path`]. No-op on other platforms.
+#[cfg(windows)]
+fn with_windows_exe(program: String) -> String {
+    let p = Path::new(&program);
+    if p.extension().is_none() && !p.exists() {
+        let exe = format!("{program}.exe");
+        if Path::new(&exe).exists() {
+            return exe;
+        }
+    }
+    program
+}
+
+#[cfg(not(windows))]
+fn with_windows_exe(program: String) -> String {
+    program
 }
 
 /// Build the concrete [`Launch`] for the given host/port, performing whatever
@@ -235,9 +299,11 @@ pub fn build_launch(
 
     match cfg.inject.mode.as_str() {
         "configfile" => {
-            let ci = cfg.inject.configfile.as_ref().ok_or(
-                "inject.mode = \"configfile\" but [inject.configfile] is missing",
-            )?;
+            let ci = cfg
+                .inject
+                .configfile
+                .as_ref()
+                .ok_or("inject.mode = \"configfile\" but [inject.configfile] is missing")?;
             let template = resolve_against(&ci.template, resource_dir);
             let raw = std::fs::read_to_string(&template)
                 .map_err(|e| format!("reading template {template}: {e}"))?;
@@ -247,12 +313,11 @@ pub fn build_launch(
             let value = subst(&ci.value, bind_host, port, None);
             set_dotted(&mut doc, &ci.set_key, &value);
 
-            std::fs::create_dir_all(work_dir)
-                .map_err(|e| format!("creating work dir: {e}"))?;
+            std::fs::create_dir_all(work_dir).map_err(|e| format!("creating work dir: {e}"))?;
             let out = work_dir.join("rendered-config.toml");
             std::fs::write(&out, doc.to_string())
                 .map_err(|e| format!("writing rendered config: {e}"))?;
-            rendered_config = Some(out.to_string_lossy().into_owned());
+            rendered_config = Some(native_path(&out.to_string_lossy()));
         }
         "env" => {
             for (k, v) in &cfg.inject.env {
@@ -263,14 +328,25 @@ pub fn build_launch(
         other => return Err(format!("unknown inject.mode: {other}")),
     }
 
+    // `{resource}` and `{config}` only ever stand in for filesystem paths, so
+    // an arg built from one is respelled for the platform. Everything else —
+    // URLs, flags, bare values — is passed through exactly as written.
     let args = cfg
         .app
         .args
         .iter()
-        .map(|a| subst(a, bind_host, port, rendered_config.as_deref()))
+        .map(|a| {
+            let is_path = a.contains("{resource}") || a.contains("{config}");
+            let out = subst(a, bind_host, port, rendered_config.as_deref());
+            if is_path {
+                native_path(&out)
+            } else {
+                out
+            }
+        })
         .collect();
 
-    let program = resolve_against(&cfg.app.command, resource_dir);
+    let program = with_windows_exe(resolve_against(&cfg.app.command, resource_dir));
 
     // Prefer an explicit cwd; otherwise run from the writable work dir so a
     // bundled server can persist state (it can't write inside a read-only .app).
@@ -319,7 +395,7 @@ mod tests {
             [inject]
             mode = "configfile"
             [inject.configfile]
-            template = "{}"
+            template = '{}'
             set_key = "bind"
             value = "{{host}}:{{port}}"
             "#,
@@ -355,7 +431,7 @@ mod tests {
             [inject]
             mode = "configfile"
             [inject.configfile]
-            template = "{}"
+            template = '{}'
             set_key = "web.bind"
             value = "{{host}}:{{port}}"
             "#,
@@ -444,5 +520,63 @@ mod tests {
         assert_eq!(launch.cwd, Some(work.clone()));
         let rendered = std::fs::read_to_string(&launch.args[0]).unwrap();
         assert!(rendered.contains("bind = \"0.0.0.0:8080\""));
+    }
+
+    /// The trap that broke every bundled launcher on Windows: Tauri's
+    /// `resource_dir()` canonicalizes, which yields a verbatim path, and a
+    /// verbatim path does no separator translation — so `{resource}/node`
+    /// resolved to nothing at all.
+    #[test]
+    fn verbatim_resource_dir_is_simplified() {
+        assert_eq!(
+            simplify_windows_path(r"\\?\C:\Program Files\App/node"),
+            r"C:\Program Files\App\node"
+        );
+    }
+
+    #[test]
+    fn verbatim_unc_becomes_a_plain_unc_path() {
+        assert_eq!(
+            simplify_windows_path(r"\\?\UNC\nas\share\app/node"),
+            r"\\nas\share\app\node"
+        );
+    }
+
+    /// A device path has no non-verbatim spelling, so stripping the prefix
+    /// would break it. Leave it exactly as it came.
+    #[test]
+    fn verbatim_device_path_is_left_alone() {
+        let device = r"\\?\Volume{4c1b02c1-d990-11dc-99ae-806e6f6e6963}\node";
+        assert_eq!(simplify_windows_path(device), device);
+    }
+
+    #[test]
+    fn forward_slashes_become_backslashes() {
+        assert_eq!(simplify_windows_path("C:/tools/node"), r"C:\tools\node");
+    }
+
+    /// Windows only: neither the program nor a path argument may carry a
+    /// verbatim prefix or a forward slash, or CreateProcess cannot find the
+    /// binary and Node cannot find its entry script. Non-path args are left
+    /// exactly as written.
+    #[cfg(windows)]
+    #[test]
+    fn windows_launch_paths_are_native() {
+        let res = std::path::PathBuf::from(r"\\?\C:\Program Files\App");
+        let work = std::env::temp_dir();
+        let cfg = parse(
+            r#"
+            [app]
+            name = "App"
+            command = "{resource}/node"
+            args = ["{resource}/app/index.js", "--url", "http://{host}:{port}/"]
+            [inject]
+            mode = "args"
+            "#,
+        );
+        let launch = build_launch(&cfg, "0.0.0.0", 8080, &work, Some(&res)).unwrap();
+        assert_eq!(launch.program, r"C:\Program Files\App\node");
+        assert_eq!(launch.args[0], r"C:\Program Files\App\app\index.js");
+        assert_eq!(launch.args[2], "http://0.0.0.0:8080/");
     }
 }
