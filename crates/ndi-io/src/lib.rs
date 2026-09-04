@@ -242,7 +242,13 @@ fn run_sender(
                 Err(broadcast::error::TryRecvError::Lagged(skipped)) => {
                     warn!(output = %id, skipped, "NDI output lagged, dropped frames");
                 }
-                Err(broadcast::error::TryRecvError::Closed) => return Ok(()),
+                // The routed SOURCE went away, not this output. Break to the
+                // outer loop, which finds `subscribe` returning None and waits
+                // for a re-route with the Sender still alive. Returning here
+                // unwound out of run_sender, and the caller then built a new
+                // Sender — so deleting a source made every NDI output routed
+                // from it vanish from the network and reappear.
+                Err(broadcast::error::TryRecvError::Closed) => break,
             }
         }
     }

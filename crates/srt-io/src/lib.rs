@@ -197,7 +197,16 @@ async fn relay_out(
                         Err(broadcast::error::RecvError::Lagged(skipped)) => {
                             warn!(output = %id, skipped, "SRT output lagged, dropped frames");
                         }
-                        Err(broadcast::error::RecvError::Closed) => return,
+                        // The routed SOURCE went away, not this output. Break
+                        // back to the outer loop, which finds `subscribe`
+                        // returning None and waits for a re-route — the
+                        // contract Crosspoint::deregister_source documents:
+                        // "treat that the same as 'nothing routed yet' until
+                        // re-routed". Returning here instead made spawn_output
+                        // drop the socket and reconnect, so deleting cam1
+                        // kicked the decoder connected to `program` even
+                        // though `program` was never touched.
+                        Err(broadcast::error::RecvError::Closed) => break,
                     }
                 }
             }
