@@ -303,7 +303,10 @@ fn run_sender(
                 Err(broadcast::error::TryRecvError::Lagged(skipped)) => {
                     warn!(output = %id, skipped, "OMT output lagged, dropped frames");
                 }
-                Err(broadcast::error::TryRecvError::Closed) => return Ok(()),
+                // The routed SOURCE went away, not this output — break to the
+                // outer loop and wait for a re-route with the sender still
+                // advertising. Same fault as srt-io and ndi-io had.
+                Err(broadcast::error::TryRecvError::Closed) => break,
             }
         }
     }

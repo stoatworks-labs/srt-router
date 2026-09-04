@@ -136,3 +136,89 @@ async fn output_switches_source_live_over_real_srt() {
         .expect("decoder stream ended early");
     assert_eq!(second, Bytes::from_static(b"from-b-1"));
 }
+
+/// Removing a SOURCE must not disturb an output that happens to be routed to
+/// it. The output's own connection is not what changed.
+///
+/// This used to tear the decoder off: `relay_out` treated the source's
+/// broadcast channel closing as a socket failure and returned, so
+/// `spawn_output` dropped the SRT socket, logged "SRT output disconnected,
+/// reconnecting", slept 2 s and re-opened. A listener-mode output kicked the
+/// connected decoder; a caller-mode one showed the far end a disconnect. All
+/// from deleting a different entity.
+///
+/// `Crosspoint::deregister_source` documents the opposite: an output's
+/// `subscribe` "will start returning `None`/closed — the caller ... is expected
+/// to treat that the same as 'nothing routed yet' until re-routed."
+#[tokio::test]
+async fn removing_a_source_does_not_disconnect_outputs_routed_to_it() {
+    let crosspoint = Crosspoint::new();
+
+    let doomed_input = spawn_input(
+        "doomed".into(),
+        Endpoint::Listener {
+            bind: "127.0.0.1:18621".into(),
+        },
+        crosspoint.clone(),
+    );
+    spawn_input(
+        "survivor".into(),
+        Endpoint::Listener {
+            bind: "127.0.0.1:18622".into(),
+        },
+        crosspoint.clone(),
+    );
+    spawn_output(
+        "program".into(),
+        Endpoint::Listener {
+            bind: "127.0.0.1:18623".into(),
+        },
+        "doomed".into(),
+        crosspoint.clone(),
+    );
+    sleep(SETTLE).await;
+
+    let mut doomed = call("127.0.0.1:18621").await;
+    let mut survivor = call("127.0.0.1:18622").await;
+    let mut decoder = call("127.0.0.1:18623").await;
+    sleep(SETTLE).await;
+
+    doomed
+        .send((Instant::now(), Bytes::from_static(b"before")))
+        .await
+        .unwrap();
+    let (_t, first) = timeout(RECV_TIMEOUT, decoder.try_next())
+        .await
+        .expect("timed out waiting for the first payload")
+        .expect("decoder read error")
+        .expect("decoder stream ended early");
+    assert_eq!(first, Bytes::from_static(b"before"));
+
+    // Delete the source the output is routed from — which is what the
+    // management API does: cancel its task AND deregister it. Cancelling
+    // matters, because the input task owns the broadcast Sender; removing the
+    // entry from the map alone leaves the channel open and the output never
+    // sees Closed at all.
+    drop(doomed);
+    doomed_input.cancel();
+    assert!(crosspoint.deregister_source("doomed"));
+    sleep(SETTLE).await;
+
+    // Re-route to a source that is still there. If the output had been torn
+    // down and put back, this decoder's connection would be gone and the read
+    // below would fail rather than deliver.
+    assert!(crosspoint.route("program", "survivor"));
+    sleep(SETTLE).await;
+
+    survivor
+        .send((Instant::now(), Bytes::from_static(b"after")))
+        .await
+        .unwrap();
+
+    let (_t, second) = timeout(RECV_TIMEOUT, decoder.try_next())
+        .await
+        .expect("the decoder was disconnected by an unrelated source removal")
+        .expect("decoder read error")
+        .expect("decoder stream ended early");
+    assert_eq!(second, Bytes::from_static(b"after"));
+}
