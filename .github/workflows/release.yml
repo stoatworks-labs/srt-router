@@ -147,9 +147,215 @@ jobs:
             *.rpm
           if-no-files-found: error
 
+  launcher:
+    name: launcher-${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    # Tauri's bundler shells out to host-only tooling, so it cannot
+    # cross-compile — each platform has to build its own. That is precisely why
+    # this belongs in CI: a Mac cannot produce the Linux .deb/.AppImage at all,
+    # and the arm64 Windows VM cannot run Tauri's 32-bit makensis. Native
+    # runners solve both.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Was aarch64-apple-darwin only, and published as `-macos-app` with
+          # no architecture in the name — so an Intel Mac downloaded a bundle it
+          # could not launch. universal-apple-darwin builds both slices and
+          # lipos them. `rust_targets` is what rustup installs, because
+          # universal-apple-darwin is a Tauri bundling target and not a rustup
+          # one; `target` stays what tauri build is given.
+          - { name: macos,   os: macos-14,       target: universal-apple-darwin,   rust_targets: 'aarch64-apple-darwin,x86_64-apple-darwin', bundles: app }
+          - { name: linux,   os: ubuntu-latest,  target: x86_64-unknown-linux-gnu, bundles: 'deb,appimage' }
+          - { name: windows, os: windows-latest, target: x86_64-pc-windows-msvc,   bundles: 'nsis,msi' }
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_targets || matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: launcher-${{ matrix.target }}
+
+      - name: Install Tauri Linux deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+            librsvg2-dev patchelf libgtk-3-dev
+
+      - name: Derive version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Embed the server binary
+        shell: bash
+        # The launcher ships srtrouter as a Tauri resource. tauri.conf.json names it
+        # without an extension, so Windows needs the .exe copied under BOTH
+        # spellings or the bundler fails on the missing resource path.
+        run: |
+          mkdir -p launcher/src-tauri/bin
+          # `cond && cmd` as a bare line is a trap here: Actions runs bash with
+          # set -e, so a false condition returns non-zero and kills the step.
+          # Use if/fi for anything that is legitimately optional.
+          ext=""
+          if [[ "${{ matrix.target }}" == *windows* ]]; then ext=".exe"; fi
+          # cargo has no universal-apple-darwin target, so the universal case
+          # builds both real triples and lipos them. The binary INSIDE the app
+          # has to be universal too: a fat wrapper around a thin server would
+          # launch on an Intel Mac and then fail the moment it started its own
+          # server, which is worse than not shipping for Intel at all.
+          if [ "${{ matrix.target }}" = "universal-apple-darwin" ]; then
+            cargo build --release --target aarch64-apple-darwin -p srtrouter
+            cargo build --release --target x86_64-apple-darwin -p srtrouter
+            lipo -create \
+              target/aarch64-apple-darwin/release/srtrouter \
+              target/x86_64-apple-darwin/release/srtrouter \
+              -output "launcher/src-tauri/bin/srtrouter"
+          else
+            cargo build --release --target ${{ matrix.target }} -p srtrouter
+            src="target/${{ matrix.target }}/release/srtrouter${ext}"
+            cp "$src" "launcher/src-tauri/bin/srtrouter${ext}"
+          fi
+          if [ -f config/example.toml ]; then
+            cp config/example.toml launcher/src-tauri/bin/server-config.toml
+          fi
+          chmod +x launcher/src-tauri/bin/srtrouter* || true
+
+          # Tauri resolves resources relative to src-tauri and reports a
+          # missing one only at build time, by which point the useful context
+          # is gone. Prove the payload is there, and name every resource the
+          # manifest asks for, so a mismatch is visible here instead.
+          echo "--- launcher/src-tauri/bin ---"
+          ls -la launcher/src-tauri/bin
+          echo "--- resources tauri.conf.json expects ---"
+          node -e "
+            const c = require('./launcher/src-tauri/tauri.conf.json');
+            for (const r of (c.bundle && c.bundle.resources) || []) console.log(r);
+          "
+          # On Windows the extensionless copy is made by PowerShell in the next
+          # step: Git Bash resolves a bare name to its .exe sibling, so `cp` here
+          # silently overwrites srtrouter.exe instead of creating srtrouter, and even
+          # `test -f bin/srtrouter` returns true for a file that does not exist.
+          if [ -z "$ext" ] && [ ! -f "launcher/src-tauri/bin/srtrouter" ]; then
+            echo "MISSING: launcher/src-tauri/bin/srtrouter" >&2; exit 1
+          fi
+
+      - name: Duplicate the server binary under its unix name (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        # tauri.conf.json lists the resource as bin/srtrouter with no extension, so
+        # Windows needs both spellings on disk. PowerShell does the copy because
+        # it does no MSYS-style name resolution — Copy-Item to "srtrouter" creates a
+        # file called exactly that.
+        run: |
+          $src = "launcher/src-tauri/bin/srtrouter.exe"
+          Copy-Item $src "launcher/src-tauri/bin/srtrouter" -Force
+          Get-ChildItem launcher/src-tauri/bin | Select-Object Name, Length
+          if (-not (Test-Path -LiteralPath "launcher/src-tauri/bin/srtrouter" -PathType Leaf)) {
+            throw "bin/srtrouter still missing after Copy-Item"
+          }
+
+      - name: Build launcher
+        # working-directory, not `npm --prefix`: npx has no --prefix, so it
+        # resolved the local tauri bin against the repo root, which has no
+        # package.json, and died with ENOENT on Windows.
+        working-directory: launcher
+        shell: bash
+        run: |
+          npm install --no-audit --no-fund
+          npx --no-install tauri build \
+            --target ${{ matrix.target }} --bundles ${{ matrix.bundles }}
+
+      # Proof that "universal" is universal. A build that lost a slice looks
+      # identical in the log, and this bundle's name carries no architecture at
+      # all, so nothing downstream would reveal it either.
+      #
+      # Captured and matched with `case`, never piped into grep: steps run as
+      # `bash -eo pipefail`, so grep exiting at its first match SIGPIPEs lipo
+      # and fails the step BECAUSE the match was found.
+      - name: Verify the macOS launcher is universal
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          appdir="launcher/src-tauri/target/${{ matrix.target }}/release/bundle/macos"
+          app="SRT Router.app"
+          [ -d "$appdir/$app" ] || { echo "no .app produced" >&2; exit 1; }
+          # EVERY Mach-O in the bundle, not just Contents/MacOS/<exe>: this app
+          # ships the srtrouter server as a resource, and a fat wrapper around a
+          # thin server is still broken on half the Macs that download it.
+          found=0
+          while IFS= read -r f; do
+            __archs="$( lipo -archs "$f" 2>/dev/null )" || continue
+            [ -n "$__archs" ] || continue
+            found=$((found+1))
+            echo "${f#$appdir/$app/}: $__archs"
+            case "$__archs" in
+              *arm64*) ;;
+              *) echo "expected an arm64 slice in $f, got: $__archs" >&2; exit 1 ;;
+            esac
+            case "$__archs" in
+              *x86_64*) ;;
+              *) echo "expected an x86_64 slice in $f, got: $__archs" >&2; exit 1 ;;
+            esac
+          done < <(find "$appdir/$app" -type f -perm -u+x)
+          # A find that matched nothing would pass every check above in silence.
+          if [ "$found" -lt 2 ]; then
+            echo "expected at least the app binary and the embedded server, found $found" >&2
+            exit 1
+          fi
+
+      - name: Installers (macOS launcher)
+        if: runner.os == 'macOS'
+        shell: bash
+        # Tauri's own dmg step drives Finder over AppleScript and fails on a
+        # headless runner, so the image is built here instead. Ad-hoc signing
+        # first: an unsigned bundle is refused with "is damaged".
+        run: |
+          source scripts/release-lib.sh
+          rl_init "SRT Router" srt-router "${{ steps.ver.outputs.version }}" com.stoatworks.srt-router "$GITHUB_WORKSPACE"
+          appdir="launcher/src-tauri/target/${{ matrix.target }}/release/bundle/macos"
+          app="SRT Router.app"
+          if [ ! -d "$appdir/$app" ]; then echo "no .app produced" >&2; exit 1; fi
+          stage="$RUNNER_TEMP/stage-launcher"
+          rm -rf "$stage"; mkdir -p "$stage"
+          cp -R "$appdir/$app" "$stage/"
+          rl_adhoc_sign "$stage/$app"
+          rl_dmg macos-app "$stage" --app "$app"
+          rl_pkg macos-app "$stage" --app "$app"
+
+      - name: Collect launcher bundles
+        shell: bash
+        run: |
+          mkdir -p launcher-out
+          find launcher/src-tauri/target/${{ matrix.target }}/release/bundle \
+            -type f \( -name '*.deb' -o -name '*.AppImage' -o -name '*.exe' -o -name '*.msi' \) \
+            -exec cp {} launcher-out/ \; 2>/dev/null || true
+          cp *.dmg *.pkg launcher-out/ 2>/dev/null || true
+          ls -l launcher-out || true
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: srt-router-launcher-${{ matrix.name }}
+          path: launcher-out/*
+          if-no-files-found: warn
+
   release:
     name: Publish release
-    needs: build
+    needs: [build, launcher]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
