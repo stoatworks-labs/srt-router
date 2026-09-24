@@ -30,6 +30,16 @@ Header vendored alongside the NDI headers; the library is loaded at run time.
 
 The open alternative to NDI, and MIT end to end — so unlike NDI it can be supported without a proprietary licence in the path.
 
+### Tauri
+
+<https://tauri.app>  
+Licence: MIT or Apache-2.0  
+Copyright: The Tauri Programme within The Commons Conservancy
+
+A Cargo and npm dependency — of the app itself under src-tauri/, or of the desktop launcher under launcher/src-tauri/.
+
+Wraps a web front end in a native desktop app using the platform's own webview rather than a bundled browser, so the binary stays small.
+
 ### The Rust crate ecosystem
 
 <https://crates.io>  
