@@ -1,14 +1,14 @@
 # srt-router user guide
 
-srt-router is **a broadcast video router for SRT streams**. If you've used an SDI or HDMI
-router, you already know the model: a grid of sources down one side and destinations along
+srt-router is a broadcast video router for SRT streams. If you've used an SDI or HDMI
+router, you already know how it works: a grid of sources down one side and destinations along
 the other, where each destination is fed by exactly one source, switchable live.
 
-> **Before you rely on this:** the relay engine and web UI have been exercised locally,
-> including integration tests relaying real SRT and NDI traffic end-to-end and a live
-> crosspoint switch from the UI. But it has **never been run against real third-party
-> encoders or decoders, or over a real (non-loopback) network path**. Review it before
-> putting it in a live chain.
+> **Before you rely on this:** I've run the relay engine and web UI locally, including
+> integration tests relaying real SRT and NDI traffic end to end and a live crosspoint
+> switch from the UI. But it's **never been run against real third-party encoders or
+> decoders, or over a real (non-loopback) network path**. Check it over before you put it
+> in a live chain.
 
 ---
 
@@ -19,7 +19,7 @@ the other, where each destination is fed by exactly one source, switchable live.
 - The **crosspoint** connects them: **each output takes exactly one source; one source can
   feed any number of outputs.**
 
-Switching an output from one source to another is the whole point, and it happens live.
+Switching an output from one source to another is what it's for, and it happens live.
 
 ![The crosspoint grid in the web UI: sources across the top, outputs down the side, and a marked cell where an output is taking a source.](screenshots/crosspoint-grid.png)
 
@@ -34,9 +34,9 @@ is one source feeding several outputs, which is allowed and normal.*
 srtrouter --config /path/to/config.toml
 ```
 
-Then open the web UI at whatever `[web] bind` says — `http://localhost:8080` with the
-example config. You'll get the crosspoint grid, and it updates live: if someone else
-switches an output, your screen follows immediately.
+Then open the web UI at whatever `[web] bind` says (`http://localhost:8080` with the
+example config). You'll get the crosspoint grid, and it updates live: if someone else
+switches an output, your screen follows straight away.
 
 ---
 
@@ -72,13 +72,14 @@ default_source = "cam1"
 
 This trips people up more than anything else.
 
-- **`listener`** — srt-router *waits*, and the other end connects to it.
-- **`caller`** — srt-router *dials out* to an address you give it.
+- **`listener`**: srt-router *waits*, and the other end connects to it.
+- **`caller`**: srt-router *dials out* to an address you give it.
 
 Every SRT link needs exactly one of each. If both ends are listeners, nothing ever connects
-and both sides sit waiting; if both are callers, the same. The usual arrangement is
-encoders **calling in** to the router's input ports, and the router **calling out** to
-decoders — but any combination works as long as each link has one of each.
+and both sides sit there waiting for the phone to ring. Two callers is the same problem the
+other way round: both ringing, nobody picking up. The usual arrangement is encoders
+**calling in** to the router's input ports, and the router **calling out** to decoders, but
+any combination works as long as each link has one of each.
 
 ### Do you want routing to survive a restart?
 
@@ -87,12 +88,12 @@ decoders — but any combination works as long as each link has one of each.
 path = "state/routes.json"
 ```
 
-- **With `[state]`** — switches you make in the UI are saved and **restored on restart**,
+- **With `[state]`**: switches you make in the UI are saved and **restored on restart**,
   overriding every `default_source`.
-- **Without it** — the router **returns to the `default_source` values every time it
+- **Without it**: the router **returns to the `default_source` values every time it
   starts**.
 
-Both are legitimate. Persisting is what you want for an installation; resetting is what you
+Both make sense. Persisting is what you want for an installation, and resetting is what you
 want for a truck that should come up in a known state every show day.
 
 ---
@@ -109,7 +110,7 @@ output; a still image can feed an NDI monitor.
 | **OMT** | Open Media Transport | Only if your build has it |
 | **media** | Stills, file playback, rescaling | Always (needs `ffmpeg` installed) |
 
-**Check what your build supports** — visit `/api/manage/transports` or look at the UI's add
+**Check what your build supports**: visit `/api/manage/transports` or look at the UI's add
 menu. NDI and OMT need the router to have been compiled with those features *and* the
 relevant SDK present. `media` needs only `ffmpeg` on your `PATH`.
 
@@ -131,7 +132,7 @@ width = 1280
 height = 720
 ```
 
-Media publishes plain MPEG-TS — the same format SRT relays — so a slate feeds an SRT output
+Media publishes plain MPEG-TS, the same format SRT relays, so a slate feeds an SRT output
 with **no transcoding step**.
 
 Note media is **input-only**. There's no such thing as a media output.
@@ -140,12 +141,11 @@ Note media is **input-only**. There's no such thing as a media output.
 
 ## Adding and removing things while running
 
-You don't have to restart to add a source or output; the UI can do it live, and anything
-added this way behaves identically to something declared in the config file. Removing an
-output genuinely frees its port.
+You don't have to restart to add a source or output. The UI can do it live, and anything
+added this way behaves the same as something declared in the config file. Removing an
+output does free its port.
 
-The one asymmetry to know: **things added at runtime are not written back into your config
-file.** If you want them next time, add them to the TOML too (or use `[state]`, which
+The one catch: **things added at runtime aren't written back into your config file.** If you want them next time, add them to the TOML too (or use `[state]`, which
 persists *routing* but not the set of sources and outputs).
 
 ---
@@ -153,7 +153,7 @@ persists *routing* but not the set of sources and outputs).
 ## Troubleshooting
 
 **A source never connects.**
-Almost always a listener/caller mismatch — check both ends. Then check the port isn't
+Almost always a listener/caller mismatch, so check both ends. Then check the port isn't
 firewalled, and that any SRT stream ID or passphrase matches.
 
 **"can't route a X source to a Y output without transcoding".**
@@ -165,7 +165,7 @@ Your build doesn't have it. Check `/api/manage/transports`. NDI/OMT need both a 
 feature and their SDK.
 
 **Routing resets every time I restart.**
-You have no `[state]` section — add one.
+You have no `[state]` section. Add one.
 
 **Adding something says it's a conflict.**
 That `id` is already in use. Ids must be unique across sources, and across outputs.
@@ -179,6 +179,6 @@ RUST_LOG=debug srtrouter --config config.toml
 
 ## Security
 
-**There is no authentication on the web UI or API.** Anyone who can reach the port can
+**There's no authentication on the web UI or API.** Anyone who can reach the port can
 re-route your program output or delete a source. Put it on a management network, bind it to
-a specific interface, or firewall it — don't expose it to the internet.
+a specific interface, or firewall it, and don't expose it to the internet.
