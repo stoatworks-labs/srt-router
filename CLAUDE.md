@@ -6,7 +6,7 @@ Crosspoint-based SRT router (Rust). Relays/routes SRT streams through a matrix, 
 - Build: `cargo build` (workspace)
 - Test: `cargo test`
 - Lint: `cargo clippy --all-targets --all-features`
-- Run: `cargo run -p router`
+- Run: `cargo run -p srtrouter`
 
 ## Layout (crates/)
 - `core` — crosspoint/matrix model & shared types

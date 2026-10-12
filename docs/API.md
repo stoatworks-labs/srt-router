@@ -160,5 +160,5 @@ defaults to `true`. The `scaler` mode rescales/re-encodes an existing source by 
 Standard `tracing` env filter, default `info`:
 
 ```bash
-RUST_LOG=debug cargo run -p router
+RUST_LOG=debug cargo run -p srtrouter
 ```

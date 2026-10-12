@@ -104,7 +104,7 @@ if you run a firewall, open the ports yourself (`ufw allow <port>/tcp`).
 No signing gate. Make the binary executable if you took the tarball:
 
 ```sh
-chmod +x ./srt-router
+chmod +x ./srtrouter
 ```
 
 The `.deb` and `.rpm` packages are unsigned too, so your package manager may object:

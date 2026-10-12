@@ -51,9 +51,9 @@ demo/serve-demo.py --dir demo/dist    # check it locally first
 git add demo/dist && git commit && git push   # Cloudflare publishes it
 ```
 
-`config/demo.toml` deliberately uses **SRT only**. NDI and OMT need their
-proprietary SDKs and their own Cargo features, so recording with them would show
-a default build doing something it can't.
+`config/demo.toml` deliberately uses **SRT only**. OMT needs its proprietary SDK
+and its own Cargo feature, and NDI only works where the NDI runtime is installed,
+so recording with them would show a default build doing something it often can't.
 
 Cloudflare Pages publishes `demo/dist` from the repo with **no build command**.
 It has to be committed: assembling the demo means running the app against its

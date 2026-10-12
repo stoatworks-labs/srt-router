@@ -122,7 +122,9 @@ links at build time (`cargo run --features omt`). `crates/media-io`
 ## Status
 
 **Phase 1: relay-only crosspoint + web UI, dynamic add/remove. Done.**
-**Phase 2 (current): special-purpose (non-relay) sources. Done.**
+**Phase 2: special-purpose (non-relay) sources. Done.**
+**Phase 3 (current): operational hardening.** Persisted routing and websocket push are done;
+auth/TLS, SRT connection health and multiview are still to do.
 Working:
 
 - SRT input/output as either `listener` (this router waits for a

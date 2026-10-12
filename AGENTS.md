@@ -40,7 +40,7 @@ that reaches into `router` directly breaks that.
 ```bash
 cargo build            # workspace
 cargo test
-cargo run -p router
+cargo run -p srtrouter
 ```
 
 **`cargo check`/`build` on the full workspace fails out of the box** with:
@@ -57,7 +57,7 @@ vendored. Either set `OMT_LIB_DIR` to an extracted
 subset:
 
 ```bash
-cargo build -p core -p router -p srt-io       # skip omt-io
+cargo build -p crosspoint-core -p srtrouter -p srt-io       # skip omt-io
 ```
 
 The build script's error message is clear; the repo docs did not previously mention it, which

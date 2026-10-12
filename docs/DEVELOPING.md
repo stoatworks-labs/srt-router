@@ -20,8 +20,8 @@ into the repo. You have two options:
 
 ```bash
 # 1. Work on the subset that needs no external SDKs (usually what you want)
-cargo build -p crosspoint-core -p router -p srt-io -p web
-cargo test  -p crosspoint-core -p router -p srt-io -p web
+cargo build -p crosspoint-core -p srtrouter -p srt-io -p crosspoint-web
+cargo test  -p crosspoint-core -p srtrouter -p srt-io -p crosspoint-web
 
 # 2. Or supply the library
 export OMT_LIB_DIR=/path/to/libomtnet/Libraries/macos
@@ -30,9 +30,10 @@ cargo build
 
 Releases: <https://github.com/openmediatransport/libomtnet/releases>
 
-`ndi-io` has the same shape of dependency — it needs the NDI SDK installed to compile.
+`ndi-io` used to have the same shape of dependency and no longer does: it loads the NDI
+runtime with `dlopen`, so it needs no SDK to compile and builds by default.
 
-**Neither is required for the core router.** SRT, the crosspoint and the web UI all build
+**Neither SDK is required for the core router.** SRT, the crosspoint and the web UI all build
 with no external SDK.
 
 ---
@@ -42,19 +43,19 @@ with no external SDK.
 ```bash
 cargo build
 cargo test
-cargo run -p router                       # uses config/example.toml
-cargo run -p router -- -c my-config.toml
+cargo run -p srtrouter                    # uses config/example.toml
+cargo run -p srtrouter -- -c my-config.toml
 cargo clippy --all-targets --all-features
 ```
 
-`--all-features` here means NDI **and** OMT must be available. On a machine without them,
-lint per-crate instead. (Note this differs from the sibling `openstage` repo, where
+`--all-features` here means OMT must be available (NDI needs nothing to build). On a machine
+without it, lint per-crate instead. (Note this differs from the sibling `openstage` repo, where
 `--all-features` is explicitly forbidden for the same reason — here it's the documented
-command, but it still needs the SDKs.)
+command, but it still needs the OMT SDK.)
 
 Logging is `tracing` with an env filter, default `info`:
 ```bash
-RUST_LOG=debug cargo run -p router
+RUST_LOG=debug cargo run -p srtrouter
 ```
 
 ---

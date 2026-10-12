@@ -122,7 +122,7 @@ than requiring exact kind-string equality the way the NDI/OMT case does.
 
 Why ffmpeg as a subprocess rather than a Rust-native encode/decode crate:
 mature, well-tested codec support with no proprietary SDK or FFI to
-maintain (unlike NDI/OMT, `ffmpeg` needs no build-time linking at all — it's
+maintain (unlike OMT, `ffmpeg` needs no build-time linking at all — it's
 a runtime dependency, checked by actually trying to spawn it, so
 `media-io` carries no Cargo feature gate and is a normal `default-members`
 crate). And specifically *not* asking ffmpeg to speak SRT itself
@@ -182,7 +182,7 @@ already local to this process.
   auditable than a build-time bindgen step), `src/envelope.rs` doing the
   same frame<->`Bytes` conversion. Requires `OMT_LIB_DIR` pointed at a
   `libomtnet` release's `Libraries/<platform>` folder to build (no standard
-  install location exists for OMT the way NDI has one). Also excluded from
+  install location exists for OMT the way NDI has one). Excluded from
   `default-members`. Wired into `crates/router` behind the `omt` Cargo
   feature — unlike NDI, which no longer needs one. Because `omt-io` has no
   `[[bin]]` target of its
@@ -280,7 +280,7 @@ DELETE /api/manage/sources/:id
 GET    /api/manage/outputs              -> [{ "id": "program", "kind": "srt" }, ...]
 POST   /api/manage/outputs               { "id": "aux", "transport": "srt", "mode": "caller", "connect": "203.0.113.10:6000", "default_source": "cam1" }
 DELETE /api/manage/outputs/:id
-GET    /api/manage/transports           -> ["srt", "media", "ndi", "omt"]   (whichever Cargo features are on; media is always present)
+GET    /api/manage/transports           -> ["srt", "ndi", "omt", "media"]   (whichever Cargo features are on; media is always present)
 ```
 
 `POST` is rejected with `409 Conflict` if the id already exists (checked

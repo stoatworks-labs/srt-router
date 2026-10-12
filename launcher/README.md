@@ -10,8 +10,9 @@ inside the app** — it's a single download, nothing to install or wire up.
 Download the `.dmg` from
 [Releases](https://github.com/stoatworks-labs/srt-router/releases).
 
-> **Unsigned build.** On first launch macOS Gatekeeper will block it —
-> right-click the app → **Open** → **Open**, once.
+> The macOS build is Developer ID-signed and notarised, so it opens normally. The
+> Windows installers are unsigned: [docs/UNSIGNED.md](../docs/UNSIGNED.md) has the
+> one-time SmartScreen click-through.
 
 ## What it does
 

@@ -63,6 +63,10 @@
       at all, so a removed NDI input whose target never appeared would
       leak its blocking thread forever — now bounded to the discovery poll
       interval (~5s worst case).
+      Since replaced: `ndi-io` now loads the NDI runtime with `dlopen`
+      (hand-written FFI in `src/sys.rs`, no `grafton-ndi`), so it needs no
+      SDK to build, the `ndi` feature is on by default, and CI builds and
+      tests it (the tests that need a runtime skip themselves).
 - [x] **Cross-kind route validation** — now that SRT and NDI can genuinely
       coexist in one config, `POST /api/route` rejects routing a source to
       an output of a different kind (e.g. an NDI source into an SRT
@@ -84,8 +88,8 @@
       (`src/envelope.rs`). Requires `OMT_LIB_DIR` pointed at a
       `libomtnet` release's `Libraries/<platform>` folder (no standard
       install location exists for OMT the way NDI has one) — real
-      workspace member, excluded from `default-members`/CI same as
-      `ndi-io`. Verified for real: `crates/omt-io/tests/relay.rs` drives
+      workspace member, excluded from `default-members`/CI the way `ndi-io`
+      was then. Verified for real: `crates/omt-io/tests/relay.rs` drives
       an actual OMT sender and receiver (raw `sys::` calls, not this
       crate's own code — an independent check on the envelope's fidelity)
       against `spawn_input`/`spawn_output`, consistently passing (~2.1s,
@@ -166,9 +170,9 @@ child process, for three reasons found while scoping this in practice.
 First, it needs no proprietary SDK or build-time linking at all (unlike
 NDI/OMT) — it's a pure runtime dependency, checked by trying to spawn it —
 so `media-io` carries no Cargo feature gate and stays a normal
-`default-members`/CI-tested crate, unlike `ndi-io`/`omt-io`. Second, and
-initially a surprise: this project's own dev-machine ffmpeg (Homebrew) has
-no `srt` protocol support at all (`ffmpeg -protocols` lists `srtp`, not
+`default-members`/CI-tested crate, unlike `omt-io` (and `ndi-io` at the
+time). Second, and initially a surprise: this project's own dev-machine
+ffmpeg (Homebrew) has no `srt` protocol support at all (`ffmpeg -protocols` lists `srtp`, not
 `srt` — the `--enable-libsrt` build flag isn't Homebrew's default), so
 asking ffmpeg to speak `srt://` directly would have made the whole feature
 dependent on a non-default ffmpeg build. Piping raw MPEG-TS over
