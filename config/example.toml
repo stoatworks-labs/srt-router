@@ -44,8 +44,8 @@ transport = "srt"
 mode = "caller"
 connect = "203.0.113.10:5000"
 
-# NDI and OMT inputs/outputs look like this (uncomment once the router is
-# built with `--features ndi` / `--features omt`):
+# NDI and OMT inputs/outputs look like this (NDI is in the default build and
+# needs the NDI runtime at run time; OMT needs a build with `--features omt`):
 #
 # [[inputs]]
 # id = "ndi-cam"

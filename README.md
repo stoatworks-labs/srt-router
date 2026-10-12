@@ -175,9 +175,16 @@ Working:
   Scaler also consumes another registered source's own `Bytes` (subscribe,
   pipe into ffmpeg's stdin), which makes it the one non-relay path here that
   does transcode.
-- CI (GitHub Actions) runs `fmt --check`, `clippy -D warnings` and the full
-  test suite on every push and PR, for SRT (+media) only. `ndi-io`/`omt-io`
-  need SDKs CI can't install, so they're workspace members but left out of
+- Companion control:
+  [companion-module-srt-router](https://github.com/stoatworks-labs/companion-module-srt-router),
+  released separately, does takes, cycles, salvos and runtime add/remove over
+  the REST API and websocket, with crosspoint and source-side tally. Its own
+  tests run against a stand-in router.
+- CI (GitHub Actions) runs `fmt --check`, `clippy -D warnings` and the
+  test suite on every push and PR, for SRT, media and NDI. `ndi-io` builds
+  there because it needs no SDK, and its tests that need a runtime skip
+  themselves, so CI covers its envelope and struct-layout tests. `omt-io`
+  needs an SDK CI can't install, so it's a workspace member left out of
   `default-members`; `media-io` only needs `ffmpeg`, which CI installs (see
   [docs/architecture.md](docs/architecture.md)).
 - Verified locally, not just compiled: `cargo test` passes, and the default
@@ -204,8 +211,7 @@ Working:
 **Not done yet:** no test against a real third-party SRT/NDI/OMT encoder or
 decoder, or over a real (non-loopback) network path. It's only been tested
 locally so far, and that's still the main gap. Also missing: auth on the web
-UI/API, and an external control API/Companion integration.
-[docs/roadmap.md](docs/roadmap.md) has the full phased plan.
+UI/API. [docs/roadmap.md](docs/roadmap.md) has the full phased plan.
 
 ## Quick start
 
@@ -261,7 +267,7 @@ Full phased plan in [docs/roadmap.md](docs/roadmap.md). Main open items:
 - [x] **NDI and OMT live in the web UI, config, and REST API**, told apart by an explicit `transport` tag per input/output. NDI ships by default (runtime loaded with `dlopen`, no SDK needed to build); OMT stays behind an opt-in `omt` feature.
 - [x] **Special-purpose sources**: stills, local media player and scaler tap, all built on real `ffmpeg` child processes and live in the web UI's Add source menu, config, and REST API.
 - [ ] **Auth/TLS** on the web UI/API.
-- [ ] **External control API / Bitfocus Companion** integration.
+- [x] **Bitfocus Companion**: [companion-module-srt-router](https://github.com/stoatworks-labs/companion-module-srt-router) drives the crosspoint over the REST API. See [Control it from Companion](#control-it-from-companion).
 
 ## Control it from Companion
 

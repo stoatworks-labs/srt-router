@@ -71,12 +71,13 @@ is exactly as removable via the API as one added later — there is no "permanen
 Which transports this binary actually supports:
 
 ```json
-["srt", "media"]
+["srt", "ndi", "media"]
 ```
 
 This is **build-dependent**. `ndi` and `omt` appear only if the binary was compiled with the
-matching Cargo feature; `media` is always present (it needs only `ffmpeg` on `PATH` at
-runtime). Query this rather than assuming.
+matching Cargo feature: `ndi` is on by default, so it's in every release, and `omt` is opt-in.
+`media` is always present (it needs only `ffmpeg` on `PATH` at runtime). Query this rather
+than assuming.
 
 ### `GET /api/manage/sources` · `GET /api/manage/outputs`
 ```json
@@ -144,8 +145,10 @@ default_source = "cam1"
 dials out*. A common setup is encoders calling **in** to fixed input ports and decoders
 listening for the router to call **out** — but any combination works.
 
-**Transports mix freely.** An NDI, OMT or media source can feed an SRT output and vice
-versa, exactly as easily as staying within one transport.
+**Transports only mix where the payload matches.** SRT and media carry the same plain
+MPEG-TS, so a media source can feed an SRT output. NDI only routes to NDI and OMT only to OMT;
+any other pairing gets the payload-mismatch refusal under
+[`POST /api/route`](#post-apiroute).
 
 Media inputs default to 1280x720 if `width`/`height` are omitted, and `loop_playback`
 defaults to `true`. The `scaler` mode rescales/re-encodes an existing source by `id`.

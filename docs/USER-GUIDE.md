@@ -100,19 +100,22 @@ want for a truck that should come up in a known state every show day.
 
 ## Beyond SRT
 
-**Sources and outputs don't have to be the same transport.** An NDI camera can feed an SRT
-output; a still image can feed an NDI monitor.
+**Transports only mix where the payload matches.** SRT and media both carry plain MPEG-TS, so
+a still image can feed an SRT output. NDI only routes to NDI and OMT only to OMT, because the
+router doesn't transcode between them.
 
 | Transport | Use | Availability |
 |---|---|---|
 | **SRT** | The main event | Always |
-| **NDI** | Local-network video | Only if your build has it |
+| **NDI** | Local-network video | Built in (needs the NDI runtime when it runs) |
 | **OMT** | Open Media Transport | Only if your build has it |
 | **media** | Stills, file playback, rescaling | Always (needs `ffmpeg` installed) |
 
 **Check what your build supports**: visit `/api/manage/transports` or look at the UI's add
-menu. NDI and OMT need the router to have been compiled with those features *and* the
-relevant SDK present. `media` needs only `ffmpeg` on your `PATH`.
+menu. NDI is in every release and in a default build from source, and loads the NDI runtime
+when it runs. Without the runtime, an NDI endpoint fails and the message names the download.
+OMT needs a build with the `omt` feature and the OMT SDK. `media` needs only `ffmpeg` on your
+`PATH`.
 
 ### Useful media tricks
 
@@ -158,11 +161,14 @@ firewalled, and that any SRT stream ID or passphrase matches.
 
 **"can't route a X source to a Y output without transcoding".**
 The two payload kinds are incompatible, and the router is refusing to emit something the far
-end couldn't decode. Route through a `media` `scaler` input to convert.
+end couldn't decode. SRT and media sources can feed SRT outputs; NDI and OMT only route to
+their own kind. A `media` `scaler` only rescales MPEG-TS, so it can't convert NDI or OMT
+either.
 
 **NDI or OMT isn't in the menu.**
-Your build doesn't have it. Check `/api/manage/transports`. NDI/OMT need both a compile-time
-feature and their SDK.
+Your build doesn't have it. Check `/api/manage/transports`. NDI is in every release and in a
+default build, so a missing NDI means a build made with `--no-default-features`. OMT needs a
+build with the `omt` feature and the OMT SDK.
 
 **Routing resets every time I restart.**
 You have no `[state]` section. Add one.

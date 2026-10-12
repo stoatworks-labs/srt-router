@@ -234,3 +234,6 @@ that route cleanly into a live SRT output.
   or Bitfocus Companion for physical-panel control. Deferred until the
   REST API's shape has settled from real use, so it isn't locked in
   prematurely.
+- [x] Bitfocus Companion, built on the REST API and websocket as they stand:
+      [companion-module-srt-router](https://github.com/stoatworks-labs/companion-module-srt-router),
+      released separately.
