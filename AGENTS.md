@@ -102,7 +102,7 @@ broadcast chain is a different claim.
 
 ## 6. Conventions
 
-- Multi-platform release CI. Cross-compile macOS x86_64 on `macos-14` — **never `macos-13`**,
+- Multi-platform release CI. Cross-compile macOS x86_64 on `macos-15` — **never `macos-13`**,
   those Intel runners are retired.
 - Ships as its own desktop app via **av-launcher** (Tauri v2 tray shell, server embedded).
   Note the macOS Gatekeeper trap that affects every av-launcher app: for an unsigned `.app`

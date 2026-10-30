@@ -152,7 +152,7 @@ decoder, and no real network path. Everything so far is loopback and synthetic.
 
 ## Releasing
 
-Multi-platform release CI. **Cross-compile macOS x86_64 on `macos-14`, never `macos-13`** —
+Multi-platform release CI. **Cross-compile macOS x86_64 on `macos-15`, never `macos-13`** —
 the Intel runners are retired.
 
 Ships as its own desktop app via **av-launcher** (Tauri tray shell, server embedded). Note

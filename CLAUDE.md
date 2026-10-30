@@ -23,7 +23,7 @@ Crosspoint-based SRT router (Rust). Relays/routes SRT streams through a matrix, 
   and offsets and skip when no runtime is installed. `omt-io` still links at build time, so
   it stays opt-in behind `--features omt` and out of `default-members`.
 - Routing is crosspoint-based: sources × destinations matrix — keep new I/O backends behind the `core` I/O trait.
-- Multi-platform release CI; cross-compile macOS x86_64 on macos-14 (never macos-13).
+- Multi-platform release CI; cross-compile macOS x86_64 on macos-15 (never macos-13).
 - Public repo. Ships user-facing AI disclaimer. "Commit" = commit **and** push.
 
 ## Diagnostics
