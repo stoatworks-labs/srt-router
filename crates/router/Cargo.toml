@@ -19,7 +19,7 @@ crosspoint-web = { path = "../web" }
 axum = "0.8"
 tokio = { version = "1", features = ["full"] }
 tokio-util = "0.7"
-parking_lot = "0.12"
+parking_lot = "0.13"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "1.1"
