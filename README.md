@@ -13,6 +13,8 @@ number of SRT outputs, and a router-style crosspoint between them where each out
 exactly one source and you can switch it live. It's the same idea as a broadcast video
 router, with SRT streams instead of SDI or HDMI, and a lot less to carry up the stairs.
 
+The [project page](https://stoatworks-labs.com/software/srt-router/) has the downloads, the [user guide](https://stoatworks-labs.com/software/srt-router/guide/), the video and a demo you can click around in the browser.
+
 ![srt-router architecture: SRT inputs feeding crosspoint-core's per-source broadcast channels, a routing table mapping each output to one source, out to SRT outputs](docs/diagrams/architecture.svg)
 
 [![Watch it running — 45 seconds](docs/video-thumb.png)](https://www.youtube.com/watch?v=Jp6JLf51UgY)
