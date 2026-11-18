@@ -278,7 +278,7 @@ checksum = "61803da095bee82a81bb1a452ecc25d3b2f1416d1897eb86430c6159ef717c17"
 
 [[package]]
 name = "crosspoint-core"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "bytes",
  "parking_lot 0.13.0",
@@ -287,7 +287,7 @@ dependencies = [
 
 [[package]]
 name = "crosspoint-web"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "axum",
  "bytes",
@@ -842,7 +842,7 @@ checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
 
 [[package]]
 name = "media-io"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "bytes",
  "crosspoint-core",
@@ -880,7 +880,7 @@ dependencies = [
 
 [[package]]
 name = "ndi-io"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "bytes",
  "crosspoint-core",
@@ -919,7 +919,7 @@ dependencies = [
 
 [[package]]
 name = "omt-io"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "bytes",
  "crosspoint-core",
@@ -1340,7 +1340,7 @@ dependencies = [
 
 [[package]]
 name = "srt-io"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "bytes",
  "crosspoint-core",
@@ -1399,7 +1399,7 @@ dependencies = [
 
 [[package]]
 name = "srtrouter"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "anyhow",
  "axum",
