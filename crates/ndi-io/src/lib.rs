@@ -24,7 +24,7 @@ pub mod sys;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crosspoint_core::Crosspoint;
+use crosspoint_core::{Crosspoint, SourceSender};
 use serde::Deserialize;
 use tokio::sync::{broadcast, watch};
 use tokio_util::sync::CancellationToken;
@@ -150,7 +150,7 @@ fn find_source_by_name(
 fn run_receiver(
     id: &str,
     source_name: &str,
-    tx: &broadcast::Sender<bytes::Bytes>,
+    tx: &SourceSender,
     cancel: &CancellationToken,
 ) -> Result<(), NdiIoError> {
     let api = sys::load()?;
@@ -162,6 +162,9 @@ fn run_receiver(
     info!(source = %id, ndi_source = %source.name, "NDI input connected");
 
     let mut receiver = Receiver::connect(api, &source, "srt-router")?;
+    // Connected from here until this function returns, by any path. Whether
+    // frames are actually arriving is the crosspoint's call, from `send`.
+    let _connected = tx.connected();
 
     // Deliberately *not* gating on `receiver.is_connected()` per-iteration:
     // it reads false for a while right after connecting (a fresh socket

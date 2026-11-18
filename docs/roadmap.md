@@ -225,9 +225,18 @@ that route cleanly into a live SRT output.
       routers' control ports, but that assumption should be explicit and
       optionally removable. Not started — needs a decision on the auth
       model (shared secret vs. something richer) before implementing.
-- [ ] Surface SRT connection health (the socket statistics `srt-tokio`/SRT
-      itself exposes — RTT, loss, bitrate) in the web UI and API, not just
-      connected/disconnected.
+- [x] Input health, first slice: every source reports `live` (connected,
+      data in the last 2 s), `idle` (connected, nothing for 2 s) or
+      `offline`, as a dot on its column in the web UI and as
+      `source_health` in `GET /api/state` / `/ws`, for SRT, NDI, OMT and
+      media sources alike. The transport marks itself connected
+      (`SourceSender::connected`); "data flowing" is measured once, in
+      `crosspoint-core`, from every chunk published. Proposed by fraro in
+      issue #18. Unit tests in `crates/core`, an end-to-end SRT test in
+      `crates/srt-io/tests/relay.rs`, and checked live in a browser.
+- [ ] Surface SRT connection statistics (the socket statistics `srt-tokio`/SRT
+      itself exposes — RTT, loss, bitrate) in the web UI and API, beyond the
+      live/idle/offline state above.
 - [ ] Multiview: thumbnail/preview of each source in the web UI grid, not
       just its id.
 

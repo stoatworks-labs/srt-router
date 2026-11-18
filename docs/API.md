@@ -20,12 +20,27 @@ The whole crosspoint state.
 {
   "sources": ["cam1", "cam2", "remote-feed"],
   "outputs": ["program", "preview"],
-  "routes": { "program": "cam1", "preview": "cam2" }
+  "routes": { "program": "cam1", "preview": "cam2" },
+  "source_health": { "cam1": "live", "cam2": "idle", "remote-feed": "offline" }
 }
 ```
 
 `routes` maps **each output to exactly one source** — that's the crosspoint model. An output
 has one source; a source may feed many outputs.
+
+`source_health` gives every source one of three states, the same ones the web UI's dots show:
+
+| Value | Meaning |
+|---|---|
+| `live` | Connected, and payload arrived within the last 2 seconds. |
+| `idle` | Connected, but nothing has arrived for 2 seconds or more. The far end is there and sending nothing. |
+| `offline` | Not connected: an SRT listener still waiting for its caller, a caller still dialling, an NDI/OMT source not found yet, or a media source's ffmpeg between restarts. |
+
+"Connected" is the transport's own notion (SRT handshake done, NDI/OMT receiver created,
+ffmpeg running). "Arrived" counts every payload chunk the source publishes, whether or not
+any output is routed to it, so an unrouted camera still reads `live`. The 2-second threshold
+is `crosspoint_core::IDLE_AFTER`, one value for every transport. Added in v0.2.7; older
+routers omit the field. Detailed SRT statistics (RTT, loss, bitrate) are not reported yet.
 
 ### `POST /api/route`
 Route an output to a source. This is the live switch.
@@ -55,7 +70,9 @@ far end can't decode. Media sources publish plain MPEG-TS — the same wire form
 
 ### `GET /ws`
 WebSocket. Pushes the same `GET /api/state` object **on connect and again whenever the
-routing changes**, so a UI updates live without polling.
+routing or any source's health changes** (checked every 200 ms), so a UI updates live
+without polling. A source going quiet has no event of its own, so `live` turning `idle`
+arrives about 2.2 seconds after its last chunk. Nothing is pushed while nothing changes.
 
 ---
 

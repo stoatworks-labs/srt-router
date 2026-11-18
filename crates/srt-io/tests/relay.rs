@@ -7,7 +7,7 @@
 use std::time::{Duration, Instant};
 
 use bytes::Bytes;
-use crosspoint_core::Crosspoint;
+use crosspoint_core::{Crosspoint, SourceHealth};
 use futures::SinkExt;
 use srt_io::{spawn_input, spawn_output, Endpoint};
 use srt_tokio::SrtSocket;
@@ -25,6 +25,58 @@ async fn call(addr: &str) -> SrtSocket {
         .call(addr, None)
         .await
         .unwrap_or_else(|e| panic!("failed to connect to {addr}: {e}"))
+}
+
+/// Poll until `id` reads as `want`, failing after `RECV_TIMEOUT`. Polled
+/// rather than slept-then-asserted, because how long the router's side of an
+/// SRT handshake or shutdown takes to land is up to the scheduler.
+async fn wait_for_health(crosspoint: &Crosspoint, id: &str, want: SourceHealth) {
+    let deadline = Instant::now() + RECV_TIMEOUT;
+    loop {
+        let got = crosspoint.source_health().get(id).copied();
+        if got == Some(want) {
+            return;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "{id} never read {want:?}; last read {got:?}"
+        );
+        sleep(Duration::from_millis(50)).await;
+    }
+}
+
+/// The input's health follows a real SRT connection: offline while the
+/// listener waits, idle once an encoder has connected but sent nothing, live
+/// once payload arrives, and offline again when the encoder hangs up.
+#[tokio::test]
+async fn input_health_follows_a_real_srt_connection() {
+    let crosspoint = Crosspoint::new();
+    spawn_input(
+        "cam".into(),
+        Endpoint::Listener {
+            bind: "127.0.0.1:18631".into(),
+        },
+        crosspoint.clone(),
+    );
+    sleep(SETTLE).await;
+    assert_eq!(
+        crosspoint.source_health().get("cam"),
+        Some(&SourceHealth::Offline),
+        "nothing has connected to the listener yet"
+    );
+
+    let mut encoder = call("127.0.0.1:18631").await;
+    wait_for_health(&crosspoint, "cam", SourceHealth::Idle).await;
+
+    encoder
+        .send((Instant::now(), Bytes::from_static(b"ts")))
+        .await
+        .expect("encoder send");
+    wait_for_health(&crosspoint, "cam", SourceHealth::Live).await;
+
+    encoder.close().await.expect("encoder close");
+    drop(encoder);
+    wait_for_health(&crosspoint, "cam", SourceHealth::Offline).await;
 }
 
 #[tokio::test]

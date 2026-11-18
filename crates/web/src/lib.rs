@@ -3,6 +3,7 @@
 //! that source. No auth, no TLS — this is meant to run on a trusted
 //! operations network, same as a hardware router's control port.
 
+use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -16,8 +17,16 @@ use crosspoint_core::Crosspoint;
 use serde::{Deserialize, Serialize};
 
 const INDEX_HTML: &str = include_str!("../static/index.html");
+// The shared About dialog the page loads from `/about-data.js` and
+// `/about.js`. Embedded like the page itself: until these routes existed the
+// binary served neither, so the About button did nothing except in the hosted
+// demo, whose build copies the whole static folder.
+const ABOUT_DATA_JS: &str = include_str!("../static/about-data.js");
+const ABOUT_JS: &str = include_str!("../static/about.js");
 
-/// How often the websocket handler checks for a routing change to push.
+/// How often the websocket handler checks for a routing or source-health
+/// change to push. A source going quiet has no event of its own (it is just
+/// time passing), so this poll is also what notices `live` turning `idle`.
 /// Polling (rather than a change-hook on `crosspoint-core`) keeps the core
 /// engine free of any web-specific API — same tradeoff the REST endpoint
 /// and the router binary's own state-persistence task already make.
@@ -40,7 +49,13 @@ struct AppState {
 struct StateResponse {
     sources: Vec<String>,
     outputs: Vec<String>,
-    routes: std::collections::HashMap<String, String>,
+    // BTreeMaps, not HashMaps: `push_state` decides whether anything changed
+    // by comparing serialized JSON, and every fresh HashMap iterates in its
+    // own random order, so two identical snapshots would compare unequal.
+    routes: BTreeMap<String, String>,
+    /// Per source: `"live"`, `"idle"` or `"offline"` — see
+    /// `crosspoint_core::SourceHealth`.
+    source_health: BTreeMap<String, &'static str>,
 }
 
 #[derive(Deserialize)]
@@ -60,12 +75,35 @@ fn snapshot(crosspoint: &Crosspoint) -> StateResponse {
     StateResponse {
         sources: crosspoint.source_ids(),
         outputs: crosspoint.output_ids(),
-        routes: crosspoint.routes(),
+        routes: crosspoint.routes().into_iter().collect(),
+        source_health: crosspoint
+            .source_health()
+            .into_iter()
+            .map(|(id, health)| (id, health.as_str()))
+            .collect(),
     }
 }
 
 async fn index() -> Html<&'static str> {
     Html(INDEX_HTML)
+}
+
+fn javascript(body: &'static str) -> impl IntoResponse {
+    (
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/javascript; charset=utf-8",
+        )],
+        body,
+    )
+}
+
+async fn about_data_js() -> impl IntoResponse {
+    javascript(ABOUT_DATA_JS)
+}
+
+async fn about_js() -> impl IntoResponse {
+    javascript(ABOUT_JS)
 }
 
 async fn get_state(State(state): State<AppState>) -> Json<StateResponse> {
@@ -149,6 +187,8 @@ async fn push_state(mut socket: WebSocket, crosspoint: Arc<Crosspoint>) {
 fn build_app(state: AppState) -> Router {
     Router::new()
         .route("/", get(index))
+        .route("/about-data.js", get(about_data_js))
+        .route("/about.js", get(about_js))
         .route("/api/state", get(get_state))
         .route("/api/route", post(post_route))
         .route("/ws", get(ws_handler))
@@ -292,6 +332,68 @@ mod tests {
 
         let res = post_route_json(&app, "ndi-out", "slate").await;
         assert!(!res.ok, "media -> ndi route should still be rejected");
+    }
+
+    async fn get_state_json(app: &Router) -> serde_json::Value {
+        let req = Request::builder()
+            .uri("/api/state")
+            .body(Body::empty())
+            .unwrap();
+        let res = app.clone().oneshot(req).await.unwrap();
+        let bytes = axum::body::to_bytes(res.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        serde_json::from_slice(&bytes).unwrap()
+    }
+
+    #[tokio::test]
+    async fn state_reports_each_sources_health() {
+        let xp = Crosspoint::new();
+        xp.register_source("waiting");
+        let quiet = xp.register_source("quiet");
+        let flowing = xp.register_source("flowing");
+        xp.register_output("program", "flowing");
+        let _quiet_up = quiet.connected();
+        let _flowing_up = flowing.connected();
+        let _ = flowing.send(bytes::Bytes::from_static(b"ts"));
+
+        let state = get_state_json(&app(xp)).await;
+        assert_eq!(
+            state["source_health"],
+            serde_json::json!({ "waiting": "offline", "quiet": "idle", "flowing": "live" })
+        );
+    }
+
+    #[tokio::test]
+    async fn the_about_scripts_the_page_loads_are_served() {
+        let app = app(Crosspoint::new());
+        for path in ["/about-data.js", "/about.js"] {
+            assert!(INDEX_HTML.contains(&format!("src=\"{path}\"")));
+            let req = Request::builder().uri(path).body(Body::empty()).unwrap();
+            let res = app.clone().oneshot(req).await.unwrap();
+            assert_eq!(res.status(), 200, "{path}");
+            let content_type = res.headers()["content-type"].to_str().unwrap();
+            assert!(
+                content_type.starts_with("text/javascript"),
+                "{path}: {content_type}"
+            );
+        }
+    }
+
+    #[test]
+    fn identical_state_serializes_identically() {
+        // push_state only sends when the JSON differs from the last push, so
+        // an unchanged crosspoint must produce byte-identical JSON every time,
+        // however many routes and sources it has.
+        let xp = Crosspoint::new();
+        for i in 0..8 {
+            xp.register_source(format!("cam{i}"));
+            xp.register_output(format!("out{i}"), format!("cam{i}"));
+        }
+        let first = serde_json::to_string(&snapshot(&xp)).unwrap();
+        for _ in 0..20 {
+            assert_eq!(serde_json::to_string(&snapshot(&xp)).unwrap(), first);
+        }
     }
 
     #[tokio::test]

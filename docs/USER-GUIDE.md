@@ -21,10 +21,12 @@ the other, where each destination is fed by exactly one source, switchable live.
 
 Switching an output from one source to another is what it's for, and it happens live.
 
-![The crosspoint grid in the web UI: sources across the top, outputs down the side, and a marked cell where an output is taking a source.](screenshots/crosspoint-grid.png)
+![The crosspoint grid in the web UI: sources across the top, each with a coloured dot for whether it is arriving, outputs down the side, and a marked cell where an output is taking a source.](screenshots/crosspoint-grid.png)
 
 *One marked cell per row, because an output takes exactly one source. A column with several marks
-is one source feeding several outputs, which is allowed and normal.*
+is one source feeding several outputs, which is allowed and normal. The dot on each source says
+whether it is arriving: here cam1 and cam2 are receiving, cam3 is connected but sending nothing,
+and remote-feed isn't connected.*
 
 ---
 
@@ -37,6 +39,20 @@ srtrouter --config /path/to/config.toml
 Then open the web UI at whatever `[web] bind` says (`http://localhost:8080` with the
 example config). You'll get the crosspoint grid, and it updates live: if someone else
 switches an output, your screen follows straight away.
+
+### Is each input actually arriving?
+
+Every source's column header has a dot:
+
+- **Green: receiving.** It's connected and data is flowing.
+- **Amber: connected, no data for 2 s.** The far end is connected but sending nothing:
+  an encoder that's connected but stopped, or an NDI source that has gone quiet.
+- **Red: not connected.** Nothing has connected to a listener yet, a caller can't reach
+  its target, an NDI/OMT source hasn't been found, or a media source's ffmpeg is restarting.
+
+The dot reflects data arriving at the router, whether or not any output is taking that
+source, so you can check a camera is up before you route it. The same states are in the API
+(`source_health` in `GET /api/state`), so a control panel can show them too.
 
 ---
 

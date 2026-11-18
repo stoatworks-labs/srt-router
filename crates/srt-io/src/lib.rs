@@ -13,8 +13,7 @@
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use bytes::Bytes;
-use crosspoint_core::Crosspoint;
+use crosspoint_core::{Crosspoint, SourceSender};
 use futures::SinkExt;
 use serde::Deserialize;
 use srt_tokio::SrtSocket;
@@ -67,6 +66,7 @@ pub fn spawn_input(
                 result = open(&endpoint) => match result {
                     Ok(mut socket) => {
                         info!(source = %id, "SRT input connected");
+                        let _connected = tx.connected();
                         relay_in(&mut socket, &tx, &id, &task_cancel).await;
                         if task_cancel.is_cancelled() {
                             return;
@@ -130,12 +130,7 @@ pub fn spawn_output(
     cancel
 }
 
-async fn relay_in(
-    socket: &mut SrtSocket,
-    tx: &broadcast::Sender<Bytes>,
-    id: &str,
-    cancel: &CancellationToken,
-) {
+async fn relay_in(socket: &mut SrtSocket, tx: &SourceSender, id: &str, cancel: &CancellationToken) {
     loop {
         tokio::select! {
             _ = cancel.cancelled() => return,

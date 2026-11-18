@@ -22,8 +22,7 @@ use std::ffi::{CStr, CString};
 use std::sync::Arc;
 use std::time::Duration;
 
-use bytes::Bytes;
-use crosspoint_core::Crosspoint;
+use crosspoint_core::{Crosspoint, SourceSender};
 use serde::Deserialize;
 use tokio::sync::{broadcast, watch};
 use tokio_util::sync::CancellationToken;
@@ -179,7 +178,7 @@ pub fn spawn_output(
 fn run_receiver(
     id: &str,
     wanted: &str,
-    tx: &broadcast::Sender<Bytes>,
+    tx: &SourceSender,
     cancel: &CancellationToken,
 ) -> Result<(), OmtIoError> {
     info!(source = %id, wanted, "searching for OMT source");
@@ -201,6 +200,9 @@ fn run_receiver(
         return Err(OmtIoError::ReceiveCreateFailed(id.to_string()));
     }
     let handle = ReceiveHandle(raw);
+    // Connected from here until this function returns, by any path. Whether
+    // frames are actually arriving is the crosspoint's call, from `send`.
+    let _connected = tx.connected();
 
     let mut last_frame_at = std::time::Instant::now();
     while !cancel.is_cancelled() {

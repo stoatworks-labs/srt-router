@@ -36,6 +36,18 @@
     font-size: 0.65rem; font-weight: 600; color: #8a8f98; background: #22262e;
     border-radius: 3px; padding: 0.05rem 0.3rem; text-transform: uppercase;
   }
+  /* One dot per source column: is that input connected, and is data arriving?
+     The state comes from the router (source_health in /api/state and /ws), so
+     anything else reading the API sees exactly what this grid shows. */
+  .health-dot {
+    width: 0.55rem; height: 0.55rem; border-radius: 50%; flex: none;
+    background: #4a4f57;
+  }
+  .health-dot.live { background: #3fbf7f; box-shadow: 0 0 0 3px rgba(63, 191, 127, 0.16); }
+  .health-dot.idle { background: #e0a43a; }
+  .health-dot.offline { background: #d9534f; }
+  #legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; margin-top: 0.6rem; font-size: 0.75rem; color: #8a8f98; }
+  #legend > span { display: inline-flex; align-items: center; gap: 0.4rem; }
   .remove-btn {
     border: none; background: transparent; color: #6b7280; cursor: pointer;
     font-size: 0.85rem; line-height: 1; padding: 0.1rem 0.25rem; border-radius: 3px;
@@ -94,6 +106,11 @@
   <button type="button" id="about-btn" data-stoatworks-about>About</button>
 </h1>
 <div id="grid"><p id="empty">Loading…</p></div>
+<div id="legend" class="hidden">
+  <span><span class="health-dot live"></span>Receiving</span>
+  <span><span class="health-dot idle"></span>Connected, no data for 2 s</span>
+  <span><span class="health-dot offline"></span>Not connected</span>
+</div>
 <div id="status"></div>
 
 <div id="manage">
@@ -219,9 +236,27 @@ async function removeEntry(kindPath, id) {
   render(lastState);
 }
 
+// Wording for each source_health value. The thresholds behind them live in
+// the router (crosspoint_core::IDLE_AFTER), not here.
+const HEALTH_LABELS = {
+  live: 'Receiving',
+  idle: 'Connected, no data for 2 s',
+  offline: 'Not connected',
+};
+
+function healthDot(state, src) {
+  const health = (state.source_health || {})[src];
+  const label = HEALTH_LABELS[health];
+  if (!label) return '';
+  return `<span class="health-dot ${health}" role="img" aria-label="${label}" title="${label}"></span>`;
+}
+
 function render(state) {
   lastState = state;
   const grid = document.getElementById('grid');
+  // An older router sends no source_health: no dots, so no legend either.
+  document.getElementById('legend').classList.toggle(
+    'hidden', !state.source_health || state.sources.length === 0 || state.outputs.length === 0);
   if (state.outputs.length === 0 || state.sources.length === 0) {
     grid.innerHTML = '<p id="empty">No sources/destinations yet — add one below, or see config/example.toml.</p>';
     return;
@@ -229,7 +264,7 @@ function render(state) {
   let html = '<table><thead><tr><th></th>';
   for (const src of state.sources) {
     const kind = sourceKinds[src] ? `<span class="kind-badge">${escapeHtml(sourceKinds[src])}</span>` : '';
-    html += `<th><div class="th-inner">${escapeHtml(src)}${kind}<button class="remove-btn" data-remove-source="${escapeHtml(src)}" title="Remove source">×</button></div></th>`;
+    html += `<th><div class="th-inner">${healthDot(state, src)}${escapeHtml(src)}${kind}<button class="remove-btn" data-remove-source="${escapeHtml(src)}" title="Remove source">×</button></div></th>`;
   }
   html += '</tr></thead><tbody>';
   for (const out of state.outputs) {

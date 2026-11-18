@@ -13,4 +13,5 @@ serde_json = "1"
 tracing = "0.1"
 
 [dev-dependencies]
+bytes = "1"
 tower = { version = "0.5", features = ["util"] }

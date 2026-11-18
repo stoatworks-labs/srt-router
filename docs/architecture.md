@@ -7,8 +7,11 @@
 Three concepts, deliberately kept separate:
 
 - **Source** — anything that can publish a stream of opaque payload chunks
-  (`Bytes`). Registering one gets you a `broadcast::Sender<Bytes>` to publish
-  to; the crosspoint doesn't know or care what's inside the chunks or where
+  (`Bytes`). Registering one gets you a `SourceSender` (a broadcast sender
+  that also notes when each chunk arrived) to publish to, and the transport
+  holds its `connected()` guard while its link is up; together those give the
+  source's `SourceHealth` (live / idle / offline). The crosspoint doesn't
+  know or care what's inside the chunks or where
   they came from.
 - **Output** — a sink for exactly one source at a time, selected by id.
   Registering one gets you a `watch::Receiver<SourceId>` that changes value

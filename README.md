@@ -125,8 +125,9 @@ links at build time (`cargo run --features omt`). `crates/media-io`
 
 **Phase 1: relay-only crosspoint + web UI, dynamic add/remove. Done.**
 **Phase 2: special-purpose (non-relay) sources. Done.**
-**Phase 3 (current): operational hardening.** Persisted routing and websocket push are done;
-auth/TLS, SRT connection health and multiview are still to do.
+**Phase 3 (current): operational hardening.** Persisted routing, websocket push and
+per-input health dots are done; auth/TLS, detailed SRT statistics (RTT, loss, bitrate) and
+multiview are still to do.
 Working:
 
 - SRT input/output as either `listener` (this router waits for a
@@ -136,7 +137,9 @@ Working:
   behaviour unit tested.
 - A local web UI (`crates/web`): a grid of outputs x sources, click to route,
   updated live over a websocket (`GET /ws`) with a REST poll
-  (`GET /api/state`) for the first paint and as a fallback.
+  (`GET /api/state`) for the first paint and as a fallback. Each source's
+  column shows whether it is receiving (green), connected with no data
+  (amber) or not connected (red); the API carries the same `source_health`.
 - **Runtime add/remove**: `POST`/`DELETE /api/manage/sources` and
   `/api/manage/outputs` (`crates/router/src/management.rs`) spawn or tear
   down an SRT input/output on the fly, using the same code path the static TOML

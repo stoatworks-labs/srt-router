@@ -27,7 +27,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use bytes::{Bytes, BytesMut};
-use crosspoint_core::Crosspoint;
+use crosspoint_core::{Crosspoint, SourceSender};
 use serde::Deserialize;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Child, ChildStderr, ChildStdin, Command};
@@ -246,6 +246,9 @@ pub fn spawn_input(
                             // reconnect delay below.
                         } else {
                             info!(source = %id, "media source started");
+                            // "Connected" for a media source means ffmpeg is
+                            // running; held until this block ends.
+                            let _connected = tx.connected();
                             if let Some(stderr) = child.stderr.take() {
                                 drain_stderr(stderr, id.clone());
                             }
@@ -298,12 +301,7 @@ async fn feed_stdin(
     }
 }
 
-async fn relay_stdout(
-    child: &mut Child,
-    tx: &broadcast::Sender<Bytes>,
-    id: &str,
-    cancel: &CancellationToken,
-) {
+async fn relay_stdout(child: &mut Child, tx: &SourceSender, id: &str, cancel: &CancellationToken) {
     let Some(mut stdout) = child.stdout.take() else {
         return;
     };

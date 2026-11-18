@@ -290,6 +290,7 @@ name = "crosspoint-web"
 version = "0.2.6"
 dependencies = [
  "axum",
+ "bytes",
  "crosspoint-core",
  "serde",
  "serde_json",
