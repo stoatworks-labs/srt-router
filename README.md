@@ -39,16 +39,16 @@ to do anything real. [demo/README.md](demo/README.md) has how it's built.
 
 ## Download
 
-**[v0.2.6](https://github.com/stoatworks-labs/srt-router/releases/tag/v0.2.6)** — prebuilt for macOS, Windows and Linux. Pick your platform:
+**[v0.2.7](https://github.com/stoatworks-labs/srt-router/releases/tag/v0.2.7)** — prebuilt for macOS, Windows and Linux. Pick your platform:
 
 <details>
 <summary><b>macOS</b> — Universal (Apple Silicon + Intel)</summary>
 
 | Build | Download | Size |
 | --- | --- | --- |
-| .dmg disk image (app) | [`srt-router-0.2.6-macos-app.dmg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.2.6/srt-router-0.2.6-macos-app.dmg) | 13 MB |
-| .pkg installer (app) | [`srt-router-0.2.6-macos-app.pkg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.2.6/srt-router-0.2.6-macos-app.pkg) | 13 MB |
-| Universal (Apple Silicon + Intel) · .tar.gz archive | [`srt-router-macos-universal.tar.gz`](https://github.com/stoatworks-labs/srt-router/releases/latest/download/srt-router-macos-universal.tar.gz) | 5.2 MB |
+| .dmg disk image (app) | [`srt-router-0.2.7-macos-app.dmg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.2.7/srt-router-0.2.7-macos-app.dmg) | 13 MB |
+| .pkg installer (app) | [`srt-router-0.2.7-macos-app.pkg`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.2.7/srt-router-0.2.7-macos-app.pkg) | 13 MB |
+| Universal (Apple Silicon + Intel) · .tar.gz archive | [`srt-router-macos-universal.tar.gz`](https://github.com/stoatworks-labs/srt-router/releases/latest/download/srt-router-macos-universal.tar.gz) | 5.3 MB |
 
 </details>
 
@@ -57,10 +57,10 @@ to do anything real. [demo/README.md](demo/README.md) has how it's built.
 
 | Build | Download | Size |
 | --- | --- | --- |
-| x64 · .exe installer | [`SRT.Router_0.2.6_x64-setup.exe`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.2.6/SRT.Router_0.2.6_x64-setup.exe) | 3.7 MB |
-| x64 · .msi installer | [`SRT.Router_0.2.6_x64_en-US.msi`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.2.6/SRT.Router_0.2.6_x64_en-US.msi) | 6.3 MB |
+| x64 · .exe installer | [`SRT.Router_0.2.7_x64-setup.exe`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.2.7/SRT.Router_0.2.7_x64-setup.exe) | 3.7 MB |
+| x64 · .msi installer | [`SRT.Router_0.2.7_x64_en-US.msi`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.2.7/SRT.Router_0.2.7_x64_en-US.msi) | 6.4 MB |
 | x64 · .zip archive | [`srt-router-windows-x86_64.zip`](https://github.com/stoatworks-labs/srt-router/releases/latest/download/srt-router-windows-x86_64.zip) | 2.3 MB |
-| ARM64 · .zip archive | [`srt-router-windows-aarch64.zip`](https://github.com/stoatworks-labs/srt-router/releases/latest/download/srt-router-windows-aarch64.zip) | 2.1 MB |
+| ARM64 · .zip archive | [`srt-router-windows-aarch64.zip`](https://github.com/stoatworks-labs/srt-router/releases/latest/download/srt-router-windows-aarch64.zip) | 2.2 MB |
 
 </details>
 
@@ -69,13 +69,13 @@ to do anything real. [demo/README.md](demo/README.md) has how it's built.
 
 | Build | Download | Size |
 | --- | --- | --- |
-| x64 · .deb package (Debian/Ubuntu) | [`srt-router_0.2.6_amd64.deb`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.2.6/srt-router_0.2.6_amd64.deb) | 2.9 MB |
-| ARM64 · .deb package (Debian/Ubuntu) | [`srt-router_0.2.6_arm64.deb`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.2.6/srt-router_0.2.6_arm64.deb) | 3.0 MB |
-| x64 · .rpm package (Fedora/RHEL) | [`srt-router-0.2.6-1.x86_64.rpm`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.2.6/srt-router-0.2.6-1.x86_64.rpm) | 3.0 MB |
-| ARM64 · .rpm package (Fedora/RHEL) | [`srt-router-0.2.6-1.aarch64.rpm`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.2.6/srt-router-0.2.6-1.aarch64.rpm) | 3.0 MB |
-| x64 · AppImage | [`SRT.Router_0.2.6_amd64.AppImage`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.2.6/SRT.Router_0.2.6_amd64.AppImage) | 86 MB |
+| x64 · .deb package (Debian/Ubuntu) | [`srt-router_0.2.7_amd64.deb`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.2.7/srt-router_0.2.7_amd64.deb) | 2.9 MB |
+| ARM64 · .deb package (Debian/Ubuntu) | [`srt-router_0.2.7_arm64.deb`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.2.7/srt-router_0.2.7_arm64.deb) | 3.0 MB |
+| x64 · .rpm package (Fedora/RHEL) | [`srt-router-0.2.7-1.x86_64.rpm`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.2.7/srt-router-0.2.7-1.x86_64.rpm) | 3.0 MB |
+| ARM64 · .rpm package (Fedora/RHEL) | [`srt-router-0.2.7-1.aarch64.rpm`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.2.7/srt-router-0.2.7-1.aarch64.rpm) | 3.1 MB |
+| x64 · AppImage | [`SRT.Router_0.2.7_amd64.AppImage`](https://github.com/stoatworks-labs/srt-router/releases/download/v0.2.7/SRT.Router_0.2.7_amd64.AppImage) | 86 MB |
 | x64 · .tar.gz archive | [`srt-router-linux-x86_64.tar.gz`](https://github.com/stoatworks-labs/srt-router/releases/latest/download/srt-router-linux-x86_64.tar.gz) | 2.8 MB |
-| ARM64 · .tar.gz archive | [`srt-router-linux-aarch64.tar.gz`](https://github.com/stoatworks-labs/srt-router/releases/latest/download/srt-router-linux-aarch64.tar.gz) | 2.8 MB |
+| ARM64 · .tar.gz archive | [`srt-router-linux-aarch64.tar.gz`](https://github.com/stoatworks-labs/srt-router/releases/latest/download/srt-router-linux-aarch64.tar.gz) | 2.9 MB |
 
 </details>
 
